@@ -9,24 +9,45 @@ class HapticsService {
     }
   }
 
-  /// Light tick when scanning active / searching
+  /// Triggered when scanner screen is launched
+  static Future<void> scannerStarted() async {
+    if (await _hasVibrator()) {
+      Vibration.vibrate(duration: 60, amplitude: 100);
+    }
+  }
+
+  /// Light periodic pulse when searching for code
+  static Future<void> scanningPulse() async {
+    if (await _hasVibrator()) {
+      Vibration.vibrate(duration: 35, amplitude: 50);
+    }
+  }
+
+  /// Soft tick when navigating items
   static Future<void> scanningTick() async {
     if (await _hasVibrator()) {
       Vibration.vibrate(duration: 40, amplitude: 50);
     }
   }
 
-  /// Pulse when camera detects a DataMatrix / QR boundary
+  /// Pulse when camera detects a DataMatrix or QR code boundary
   static Future<void> codeDetected() async {
     if (await _hasVibrator()) {
-      Vibration.vibrate(pattern: [0, 80, 50, 80]);
+      Vibration.vibrate(pattern: [0, 80, 50, 80], intensities: [0, 180, 0, 180]);
     }
   }
 
   /// Quick snap when image / code frame is captured
   static Future<void> capture() async {
     if (await _hasVibrator()) {
-      Vibration.vibrate(duration: 100, amplitude: 180);
+      Vibration.vibrate(duration: 100, amplitude: 200);
+    }
+  }
+
+  /// Subtle processing pulse during verification request
+  static Future<void> verificationStarted() async {
+    if (await _hasVibrator()) {
+      Vibration.vibrate(pattern: [0, 60, 40, 60], intensities: [0, 100, 0, 100]);
     }
   }
 
@@ -41,7 +62,7 @@ class HapticsService {
   /// Triple sharp burst for expired medicine warning
   static Future<void> expiredWarning() async {
     if (await _hasVibrator()) {
-      Vibration.vibrate(pattern: [0, 100, 80, 100, 80, 250]);
+      Vibration.vibrate(pattern: [0, 100, 80, 100, 80, 250], intensities: [0, 200, 0, 200, 0, 255]);
     }
   }
 

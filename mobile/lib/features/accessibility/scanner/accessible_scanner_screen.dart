@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import '../../../core/accessibility/accessibility_theme.dart';
 import '../../../services/tts/tts_service.dart';
-import '../../../services/haptics/haptics_service.dart';
 import '../../../services/api/api_service.dart';
-import '../../../shared/models/verification_model.dart';
-import '../medicine/accessible_medicine_reader_screen.dart';
+import '../../../shared/widgets/accessible_buttons.dart';
+import '../../../shared/widgets/accessible_states.dart';
 import '../gestures/accessible_gesture_controller.dart';
+import '../medicine/accessible_medicine_reader_screen.dart';
+import '../navigation/accessibility_router.dart';
+import 'scanner_controller.dart';
+import 'scanner_state.dart';
+import 'scanner_overlay.dart';
 
 class AccessibleScannerScreen extends StatefulWidget {
   final TTSService ttsService;
@@ -21,124 +27,166 @@ class AccessibleScannerScreen extends StatefulWidget {
 }
 
 class _AccessibleScannerScreenState extends State<AccessibleScannerScreen> {
-  bool _isScanning = true;
-  String _statusText = "Align medicine package code in center. Audio & haptics active.";
+  late ScannerController _controller;
+  MobileScannerController? _mobileScannerController;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.ttsService.speak(
-        "Camera Scanner active. Hold medicine package code in front of camera. Tap screen to trigger instant test scan.",
-      );
-      HapticsService.scanningTick();
-    });
+    _controller = ScannerController(
+      ttsService: widget.ttsService,
+      apiService: widget.apiService,
+    );
+
+    _mobileScannerController = MobileScannerController(
+      formats: const [
+        BarcodeFormat.qrCode,
+        BarcodeFormat.dataMatrix,
+      ],
+      detectionSpeed: DetectionSpeed.normal,
+      facing: CameraFacing.back,
+    );
+
+    _controller.addListener(_onControllerStateChanged);
+    _controller.initializeScanner();
   }
 
-  Future<void> _processScannedCode(String rawCode) async {
-    if (!_isScanning) return;
-    setState(() {
-      _isScanning = false;
-      _statusText = "Processing code... Please wait.";
-    });
-
-    HapticsService.capture();
-    widget.ttsService.speak("Code captured. Verifying with server.");
-
-    final result = await widget.apiService.verifyCode(rawCode);
-
-    if (result.status == VerificationStatus.authentic) {
-      await HapticsService.verifiedAuthentic();
-    } else if (result.status == VerificationStatus.expired) {
-      await HapticsService.expiredWarning();
-    } else if (result.status == VerificationStatus.suspectedCounterfeit) {
-      await HapticsService.suspiciousAlert();
-    } else {
-      await HapticsService.invalidCode();
-    }
-
+  void _onControllerStateChanged() {
     if (!mounted) return;
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AccessibleMedicineReaderScreen(
-          verificationResult: result,
-          ttsService: widget.ttsService,
+    final state = _controller.state;
+
+    // Transition to Medicine Reader upon completion of verification
+    if (state.status == ScannerStatus.verificationResult && state.verificationResult != null) {
+      Navigator.pushReplacement(
+        context,
+        AccessibilityRouter.createAccessibleRoute(
+          AccessibleMedicineReaderScreen(
+            verificationResult: state.verificationResult!,
+            ttsService: widget.ttsService,
+          ),
         ),
-      ),
-    );
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerStateChanged);
+    _controller.dispose();
+    _mobileScannerController?.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AccessibleGestureController(
-      ttsService: widget.ttsService,
-      onDoubleTapScan: () => _processScannedCode("DATAMATRIX-PAR650-BATCH101-SN9988"),
-      onSwipeUpHome: () => Navigator.pop(context),
-      onSwipeDownRepeat: () {
-        widget.ttsService.speak(_statusText);
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Voice-Guided Scanner'),
-          backgroundColor: Colors.black,
-        ),
-        body: Column(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Container(
-                color: const Color(0xFF111111),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 250,
-                        height: 250,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFFFFD700), width: 6),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(Icons.camera_alt, size: 80, color: Color(0xFFFFD700)),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'CAMERA VIEWPORT ACTIVE',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFFD700)),
-                      ),
-                    ],
-                  ),
-                ),
+    return ValueListenableBuilder<ScannerState>(
+      valueListenable: _controller,
+      builder: (context, state, _) {
+        return AccessibleGestureController(
+          ttsService: widget.ttsService,
+          onDoubleTapScan: () => _controller.onBarcodeDetected("DATAMATRIX-PAR650-BATCH101-SN9988"),
+          onSwipeUpHome: () => Navigator.pop(context),
+          onTwoFingerTapHelp: () => AccessibilityRouter.navigateToHelp(context, widget.ttsService),
+          child: Scaffold(
+            backgroundColor: AccessibilityTheme.background,
+            appBar: AppBar(
+              title: const Text('Voice-Guided Scanner'),
+              backgroundColor: AccessibilityTheme.background,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, size: 28, color: AccessibilityTheme.accessibilityHighlight),
+                onPressed: () => Navigator.pop(context),
               ),
             ),
-            Expanded(
-              flex: 2,
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                color: Colors.black,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Text(
-                      _statusText,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFD700),
-                        foregroundColor: Colors.black,
-                        minimumSize: const Size(double.infinity, 64),
-                      ),
-                      onPressed: () => _processScannedCode("DATAMATRIX-PAR650-BATCH101-SN9988"),
-                      icon: const Icon(Icons.touch_app, size: 32),
-                      label: const Text('SIMULATE CAMERA SCAN'),
-                    ),
-                  ],
-                ),
-              ),
+            body: _buildBodyForState(state),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBodyForState(ScannerState state) {
+    if (state.status == ScannerStatus.cameraPermissionDenied) {
+      return _buildPermissionDeniedScreen();
+    }
+
+    if (state.status == ScannerStatus.verifying) {
+      return const AccessibleLoadingState(message: 'Medicine code detected. Verifying with server...');
+    }
+
+    if (state.status == ScannerStatus.verificationError) {
+      return AccessibleErrorState(
+        message: state.errorMessage ?? 'Verification failed.',
+        onRetry: () => _controller.initializeScanner(),
+      );
+    }
+
+    return Stack(
+      children: [
+        // Camera Viewport
+        Positioned.fill(
+          child: MobileScanner(
+            controller: _mobileScannerController,
+            onDetect: (capture) {
+              final barcodes = capture.barcodes;
+              if (barcodes.isNotEmpty) {
+                final barcode = barcodes.first;
+                final rawValue = barcode.rawValue ?? '';
+                if (rawValue.isNotEmpty) {
+                  _controller.onBarcodeDetected(rawValue, codeFormat: barcode.format.name);
+                }
+              }
+            },
+          ),
+        ),
+
+        // Accessible High-Contrast Reticle & Controls Overlay
+        Positioned.fill(
+          child: ScannerOverlay(
+            state: state,
+            onToggleTorch: () async {
+              await _mobileScannerController?.toggleTorch();
+              _controller.toggleTorch();
+            },
+            onSimulateScan: () => _controller.onBarcodeDetected("DATAMATRIX-PAR650-BATCH101-SN9988"),
+            onHelp: () => AccessibilityRouter.navigateToHelp(context, widget.ttsService),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPermissionDeniedScreen() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.videocam_off, size: 80, color: AccessibilityTheme.error),
+            const SizedBox(height: 20),
+            const Text(
+              'CAMERA ACCESS REQUIRED',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AccessibilityTheme.error),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Zero Latency needs camera access to scan your medicine DataMatrix and QR codes.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, color: AccessibilityTheme.textSecondary),
+            ),
+            const SizedBox(height: 32),
+            AccessiblePrimaryButton(
+              label: 'ALLOW CAMERA ACCESS',
+              icon: Icons.camera_alt,
+              onPressed: () => _controller.initializeScanner(),
+            ),
+            const SizedBox(height: 16),
+            AccessibleSecondaryButton(
+              label: 'RETURN TO HOME',
+              icon: Icons.home,
+              onPressed: () => Navigator.pop(context),
             ),
           ],
         ),
