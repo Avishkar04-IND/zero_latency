@@ -1,59 +1,82 @@
-# Backend Service — Smart Medicine Platform
+# Smart Medicine Backend Engine (Member 1)
 
-> Primary Owner: **Member 1**
-
----
-
-## Overview
-
-The `backend/` directory houses the core FastAPI application and PostgreSQL database integration for the Smart Medicine Platform. It is responsible for database migrations, authentication/RBAC, medicine catalog management, batch code generation (DataMatrix/QR), code verification, and scan log tracking.
+This is the backend for the **Smart Medicine Identification, Authentication & Accessibility Platform** built with **FastAPI, SQLAlchemy 2.0, Pydantic v2, and SQLite / PostgreSQL**.
 
 ---
 
-## Directory Structure
+## Quick Start (Instant Local Running)
 
-```text
-backend/
-├── app/
-│   ├── api/          # Route handlers & API endpoints
-│   ├── core/         # Config, security, JWT auth
-│   ├── db/           # Session setup & DB connection
-│   ├── models/       # SQLAlchemy ORM models
-│   ├── schemas/      # Pydantic request/response schemas
-│   ├── services/     # Business logic & QR/DataMatrix generation
-│   └── main.py       # FastAPI application entrypoint
-├── tests/            # Pytest test suite
-├── requirements.txt  # Python package dependencies
-└── README.md
+### 1. Install Dependencies
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+### 2. Seed Database (50 Clinical Medicines + Codes + Batches + Scans)
+Run the seed script to instantly populate the database with 50 realistic medicines, full tablet active ingredients, batches, QR codes, and analytics events:
+```bash
+# From workspace root
+python -m backend.app.seeds.run_seed
+```
+
+Default credentials seeded:
+- **Email:** `admin@pharma.com`
+- **Password:** `Admin@12345`
+
+### 3. Start the FastAPI Development Server
+```bash
+# From workspace root:
+python -m uvicorn backend.app.main:app --reload --port 8000
+```
+
+Interactive API documentation will be available at:
+- **Swagger UI:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- **ReDoc:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+- **Health Check:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+
+---
+
+## Running Automated Tests
+
+Run the test suite with `pytest`:
+```bash
+python -m pytest backend/tests -v
 ```
 
 ---
 
-## Responsibilities
+## Switching to PostgreSQL / Supabase
 
-* FastAPI backend server
-* PostgreSQL database ORM schemas and migrations
-* Medicine catalog management APIs
-* Batch code generation (DataMatrix & QR code encoding)
-* Code verification & anti-counterfeiting validation APIs
-* Scan activity records & audit logs
-* Role-based access control (RBAC) & authentication
+By default, the backend runs on zero-setup SQLite (`medicine_platform.db`).  
+To connect to a managed PostgreSQL database (e.g. Supabase, Neon, Render):
+
+1. Set the `DATABASE_URL` environment variable:
+```bash
+export DATABASE_URL="postgresql://user:password@host:5432/dbname"
+# On Windows PowerShell:
+$env:DATABASE_URL="postgresql://user:password@host:5432/dbname"
+```
+2. Run the seed script:
+```bash
+python -m backend.app.seeds.run_seed
+```
 
 ---
 
-## Local Setup
+## Git Workflow for Member 1
 
-1. Create a virtual environment:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Run the development server:
-   ```bash
-   uvicorn app.main:app --reload --port 8000
-   ```
-4. Access API Docs: `http://localhost:8000/docs`
+According to the team collaboration rules:
+```bash
+# Ensure you are on member1/backend branch
+git checkout -b member1/backend
+
+# Add backend and docs
+git add backend/ docs/
+
+# Commit with standard style
+git commit -m "feat(backend): implement medicine catalog, code generation and verification engine"
+
+# Push to your branch
+git push origin member1/backend
+```
+Then open a Pull Request from `member1/backend` into `integration`.

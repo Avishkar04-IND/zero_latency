@@ -1,1 +1,1 @@
-# Layout engine test suite package initialization
+"""Test suite for layout optimizer."""
