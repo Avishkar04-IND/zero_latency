@@ -3,6 +3,8 @@ import '../core/accessibility/accessibility_theme.dart';
 import '../services/api/api_service.dart';
 import '../services/api/mock_api_service.dart';
 import '../services/tts/tts_service.dart';
+import '../services/history/history_service.dart';
+import '../services/history/local_history_service.dart';
 import '../features/accessibility/home/accessible_home_screen.dart';
 import '../features/normal_user/normal_user_home_screen.dart';
 
@@ -16,6 +18,7 @@ class ExperienceSelectorApp extends StatefulWidget {
 class _ExperienceSelectorAppState extends State<ExperienceSelectorApp> {
   final ApiService _apiService = MockApiService();
   final TTSService _ttsService = TTSService();
+  final HistoryService _historyService = LocalHistoryService();
   bool _isAccessibilityMode = true; // Default to accessible experience for Member 4
 
   @override
@@ -33,6 +36,7 @@ class _ExperienceSelectorAppState extends State<ExperienceSelectorApp> {
                 child: AccessibleHomeScreen(
                   ttsService: _ttsService,
                   apiService: _apiService,
+                  historyService: _historyService,
                 ),
               ),
             ],

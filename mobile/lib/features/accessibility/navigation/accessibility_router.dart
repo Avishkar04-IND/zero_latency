@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../services/tts/tts_service.dart';
 import '../../../services/api/api_service.dart';
 import '../../../shared/models/verification_model.dart';
+import '../../../services/history/history_service.dart';
 import '../home/accessible_home_screen.dart';
 import '../scanner/accessible_scanner_screen.dart';
 import '../medicine/accessible_verification_result_screen.dart';
@@ -27,10 +28,10 @@ class AccessibilityRouter {
     );
   }
 
-  static void navigateToScanner(BuildContext context, TTSService tts, ApiService api) {
+  static void navigateToScanner(BuildContext context, TTSService tts, ApiService api, {HistoryService? historyService}) {
     Navigator.push(
       context,
-      createAccessibleRoute(AccessibleScannerScreen(ttsService: tts, apiService: api)),
+      createAccessibleRoute(AccessibleScannerScreen(ttsService: tts, apiService: api, historyService: historyService)),
     );
   }
 
@@ -45,10 +46,10 @@ class AccessibilityRouter {
     );
   }
 
-  static void navigateToHistory(BuildContext context, TTSService tts, ApiService api) {
+  static void navigateToHistory(BuildContext context, TTSService tts, ApiService api, {HistoryService? historyService}) {
     Navigator.push(
       context,
-      createAccessibleRoute(AccessibleHistoryScreen(ttsService: tts, apiService: api)),
+      createAccessibleRoute(AccessibleHistoryScreen(ttsService: tts, apiService: api, historyService: historyService)),
     );
   }
 

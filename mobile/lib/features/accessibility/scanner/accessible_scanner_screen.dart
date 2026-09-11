@@ -3,6 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/accessibility/accessibility_theme.dart';
 import '../../../services/tts/tts_service.dart';
 import '../../../services/api/api_service.dart';
+import '../../../services/history/history_service.dart';
 import '../../../shared/widgets/accessible_buttons.dart';
 import '../../../shared/widgets/accessible_states.dart';
 import '../gestures/accessible_gesture_controller.dart';
@@ -15,11 +16,13 @@ import 'scanner_overlay.dart';
 class AccessibleScannerScreen extends StatefulWidget {
   final TTSService ttsService;
   final ApiService apiService;
+  final HistoryService? historyService;
 
   const AccessibleScannerScreen({
     super.key,
     required this.ttsService,
     required this.apiService,
+    this.historyService,
   });
 
   @override
@@ -36,6 +39,7 @@ class _AccessibleScannerScreenState extends State<AccessibleScannerScreen> {
     _controller = ScannerController(
       ttsService: widget.ttsService,
       apiService: widget.apiService,
+      historyService: widget.historyService,
     );
 
     _mobileScannerController = MobileScannerController(

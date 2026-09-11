@@ -3,18 +3,21 @@ import '../../../services/tts/tts_service.dart';
 import '../../../services/haptics/haptics_service.dart';
 import '../../../services/api/api_service.dart';
 import '../../../shared/models/verification_model.dart';
+import '../../../services/history/history_service.dart';
 import 'scanner_state.dart';
 import 'scanner_guidance.dart';
 
 class ScannerController extends ValueNotifier<ScannerState> {
   final TTSService ttsService;
   final ApiService apiService;
+  final HistoryService? historyService;
 
   bool _isDisposed = false;
 
   ScannerController({
     required this.ttsService,
     required this.apiService,
+    this.historyService,
   }) : super(ScannerState.initial());
 
   Future<void> initializeScanner() async {
@@ -56,6 +59,12 @@ class ScannerController extends ValueNotifier<ScannerState> {
 
     try {
       final result = await apiService.verifyCode(codeData);
+
+      try {
+        await historyService?.saveVerification(result);
+      } catch (e) {
+        debugPrint("ScannerController: Failed to save scan history: $e");
+      }
 
       if (_isDisposed) return;
 

@@ -17,6 +17,7 @@ dependencies:
   speech_to_text: ^6.6.0
   vibration: ^1.8.4
   mobile_scanner: ^5.0.0
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:

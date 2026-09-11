@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:smart_medicine_mobile/main.dart';
+import 'package:smart_medicine_mobile/shared/experience_selector.dart';
 
 void main() {
-  testWidgets('App renders placeholder title test', (WidgetTester tester) async {
-    await tester.pumpWidget(const SmartMedicineApp());
-    expect(find.textContaining('Smart Medicine Platform'), findsOneWidget);
+  testWidgets('ExperienceSelectorApp renders accessibility home title test', (WidgetTester tester) async {
+    await tester.pumpWidget(const ExperienceSelectorApp());
+    expect(find.textContaining('ZERO LATENCY'), findsWidgets);
   });
 }
