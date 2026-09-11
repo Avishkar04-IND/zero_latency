@@ -23,7 +23,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { login, isAuthenticated, isLoading: authLoading, error: authError, clearError } = useAuth();
 
-  const [email, setEmail] = useState("admin@sunpharma.com");
+  const [email, setEmail] = useState("admin@pharma.com");
   const [password, setPassword] = useState("Admin@12345");
   const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,7 +77,7 @@ export default function LoginPage() {
   };
 
   const handleFillSeedCredentials = () => {
-    setEmail("admin@sunpharma.com");
+    setEmail("admin@pharma.com");
     setPassword("Admin@12345");
     setValidationErrors({});
     setFormError(null);
@@ -164,7 +164,7 @@ export default function LoginPage() {
                         setValidationErrors((prev) => ({ ...prev, email: undefined }));
                       }
                     }}
-                    placeholder="admin@sunpharma.com"
+                    placeholder="admin@pharma.com"
                     className="pl-9"
                     disabled={isSubmitting}
                     error={!!validationErrors.email}
@@ -250,7 +250,7 @@ export default function LoginPage() {
                 onClick={handleFillSeedCredentials}
                 className="text-[11px] text-[#6D5CE7] hover:underline font-medium flex items-center justify-center gap-1 transition-colors"
               >
-                <span>Autofill verified seed credentials (admin@sunpharma.com)</span>
+                <span>Autofill verified seed credentials (admin@pharma.com)</span>
               </button>
             </CardFooter>
           </form>

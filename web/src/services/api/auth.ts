@@ -23,12 +23,12 @@ const IS_MOCK_MODE_ENABLED =
 
 const MOCK_SEED_USER: AuthenticatedUser = {
   id: 1,
-  name: "Dr. Rajesh Sharma",
-  email: "admin@sunpharma.com",
+  name: "Dr. Rajiv Sharma",
+  email: "admin@pharma.com",
   role: "company_admin",
   organization_id: 1,
-  organization_name: "Sun Pharmaceutical Industries Ltd.",
-  branch_name: "Plant Unit 01 — Serialization Facility",
+  organization_name: "Apex National Pharma",
+  branch_name: "Main Packaging Unit - Mumbai",
   is_active: true,
 };
 
@@ -66,7 +66,7 @@ export const authService = {
       // If mock mode is explicitly enabled or server is offline, provide isolated dev fallback
       if (
         (IS_MOCK_MODE_ENABLED || err.status === 0) &&
-        credentials.email.toLowerCase() === "admin@sunpharma.com" &&
+        credentials.email.toLowerCase() === "admin@pharma.com" &&
         credentials.password === "Admin@12345"
       ) {
         console.warn(
