@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.core.config import settings
-from backend.app.core.database import engine, Base
+from backend.app.core.database import engine, Base, ensure_schema_compatibility
 # Import all models to ensure metadata registration
 import backend.app.models
 from backend.app.api.v1.router import api_router
 
-# Auto-create all tables in SQLite or PostgreSQL on startup
+# Auto-create all tables and ensure schema compatibility in SQLite or PostgreSQL
 Base.metadata.create_all(bind=engine)
+ensure_schema_compatibility(engine)
 
 app = FastAPI(
     title=settings.APP_NAME,

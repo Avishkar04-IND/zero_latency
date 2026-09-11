@@ -87,19 +87,25 @@ def verify_medicine_code(
         db.commit()
 
         return {
+            "is_valid": False,
+            "verification_status": "INVALID",
+            "medicine": None,
+            "batch": None,
+            "scanned_at": now,
+            "raw_code": serial,
+            "message": "ALERT: Counterfeit / Invalid Code detected. This medicine package is unverified and potentially unsafe.",
             "status": "INVALID",
             "is_genuine": False,
             "risk_score": 100,
             "risk_reasons": ["Unregistered serial number: Code does not exist in the official manufacturer database"],
             "scanned_serial": serial,
             "scan_count": 1,
-            "message": "ALERT: Counterfeit / Invalid Code detected. This medicine package is unverified and potentially unsafe.",
             "verified_at": now,
-            "medicine": None,
-            "batch": None,
             "voice_guidance": {
-                "alert": "Warning! Unverified or counterfeit medicine.",
-                "action": "Do not consume. Contact your pharmacist immediately."
+                "status_alert": "Warning! Unverified or counterfeit medicine.",
+                "medicine_info": "Unregistered medicine code.",
+                "expiry_info": "Unknown",
+                "instructions": "Do not consume. Contact your pharmacist immediately."
             }
         }
 
@@ -161,32 +167,80 @@ def verify_medicine_code(
 
     # Formulate user-friendly message
     if status == "GENUINE":
-        message = f"Verified Genuine: {medicine.brand_name} ({medicine.generic_name}) is authentic."
+        message = f"Verified Genuine: {medicine.brand_name if medicine else 'Medicine'} ({medicine.generic_name if medicine else ''}) is authentic."
     elif status == "EXPIRED":
-        message = f"EXPIRED MEDICINE: {medicine.brand_name} reached expiry on {batch.exp_date}. Do NOT consume."
+        message = f"EXPIRED MEDICINE: {medicine.brand_name if medicine else 'Medicine'} reached expiry on {batch.exp_date if batch else 'unknown'}. Do NOT consume."
     elif status == "REVOKED":
-        message = f"RECALLED PRODUCT: Batch {batch.batch_no} has been officially recalled. Do not consume."
+        message = f"RECALLED PRODUCT: Batch {batch.batch_no if batch else 'unknown'} has been officially recalled. Do not consume."
     else:
         message = f"SUSPICIOUS ACTIVITY: Code scanned {new_scan_count} times. Verify physical foil integrity."
 
     # Voice guidance for TTS
     voice_guidance = {
         "status_alert": f"{'Genuine verified medicine' if status == 'GENUINE' else 'Warning: ' + status}",
-        "medicine_info": f"{medicine.brand_name} {medicine.strength}, generic {medicine.generic_name}.",
-        "expiry_info": f"Expiry date is {batch.exp_date.strftime('%B %Y')}.",
-        "instructions": medicine.dosage_instructions
+        "medicine_info": f"{medicine.brand_name if medicine else ''} {medicine.strength if medicine else ''}, generic {medicine.generic_name if medicine else ''}.",
+        "expiry_info": f"Expiry date is {batch.exp_date.strftime('%B %Y') if batch else 'unknown'}.",
+        "instructions": medicine.dosage_instructions if medicine else ""
     }
 
+    # Map status to shared API contract status
+    if status == "GENUINE":
+        contract_status = "AUTHENTIC"
+    elif status == "EXPIRED":
+        contract_status = "EXPIRED"
+    elif status == "REVOKED":
+        contract_status = "RECALLED"
+    elif status == "SUSPICIOUS_MULTIPLE_SCANS":
+        contract_status = "SUSPECTED_COUNTERFEIT"
+    else:
+        contract_status = "INVALID"
+
+    is_valid = (contract_status == "AUTHENTIC")
+
+    med_info = None
+    if medicine:
+        med_info = {
+            "id": str(medicine.id),
+            "name": medicine.brand_name,
+            "generic_name": medicine.generic_name,
+            "dosage": medicine.strength or medicine.dosage_instructions or "Standard",
+            "manufacturer": medicine.manufacturer or (medicine.organization.name if medicine.organization else "Unknown"),
+            "description": medicine.indications or "",
+            "storage_instructions": medicine.storage_conditions or "",
+            "warnings": medicine.warnings_and_precautions or "",
+            "dosage_form": medicine.dosage_form,
+            "active_ingredients": medicine.active_ingredients,
+            "inactive_excipients": medicine.inactive_excipients,
+            "voice_summary_en": medicine.voice_summary_en,
+            "voice_summary_hi": medicine.voice_summary_hi,
+            "voice_summary_mr": medicine.voice_summary_mr
+        }
+
+    batch_info = None
+    if batch:
+        batch_info = {
+            "id": str(batch.id),
+            "batch_number": batch.batch_no,
+            "manufacture_date": str(batch.mfg_date) if batch.mfg_date else None,
+            "expiry_date": str(batch.exp_date),
+            "quantity": batch.quantity,
+            "status": batch.status
+        }
+
     return {
+        "is_valid": is_valid,
+        "verification_status": contract_status,
+        "medicine": med_info,
+        "batch": batch_info,
+        "scanned_at": now,
+        "raw_code": serial,
+        "message": message,
         "status": status,
         "is_genuine": (status == "GENUINE"),
         "risk_score": risk_score,
         "risk_reasons": risk_reasons,
         "scanned_serial": serial,
         "scan_count": new_scan_count,
-        "message": message,
         "verified_at": now,
-        "medicine": medicine,
-        "batch": batch,
         "voice_guidance": voice_guidance
     }

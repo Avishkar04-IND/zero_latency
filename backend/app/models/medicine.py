@@ -43,6 +43,7 @@ class Medicine(Base):
     voice_summary_hi = Column(Text, nullable=True)
     voice_summary_mr = Column(Text, nullable=True)
     
+    status = Column(String(50), default="active", nullable=False)  # active, discontinued, under_review
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships

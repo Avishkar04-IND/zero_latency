@@ -106,7 +106,8 @@ def create_medicine(
         schedule_type=req.schedule_type,
         voice_summary_en=voice_en,
         voice_summary_hi=req.voice_summary_hi,
-        voice_summary_mr=req.voice_summary_mr
+        voice_summary_mr=req.voice_summary_mr,
+        status=req.status or "active"
     )
     db.add(med)
     db.commit()
@@ -123,6 +124,7 @@ def get_medicine(id: int, db: Session = Depends(get_db)):
     return med
 
 
+@router.patch("/{id}", response_model=MedicineResponse)
 @router.put("/{id}", response_model=MedicineResponse)
 def update_medicine(
     id: int,
@@ -130,10 +132,14 @@ def update_medicine(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Updates medicine specifications and composition."""
+    """Updates medicine specifications and composition (supports both PATCH and PUT)."""
     med = db.query(Medicine).filter(Medicine.id == id).first()
     if not med:
         raise HTTPException(status_code=404, detail="Medicine record not found")
+
+    if current_user and current_user.organization_id and current_user.role != "SUPER_ADMIN":
+        if med.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Access denied: Cannot edit medicines of another organization")
 
     update_data = req.model_dump(exclude_unset=True)
 
@@ -163,6 +169,11 @@ def delete_medicine(
     med = db.query(Medicine).filter(Medicine.id == id).first()
     if not med:
         raise HTTPException(status_code=404, detail="Medicine record not found")
+
+    if current_user and current_user.organization_id and current_user.role != "SUPER_ADMIN":
+        if med.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Access denied: Cannot delete medicines of another organization")
+
     db.delete(med)
     db.commit()
     return None

@@ -3,8 +3,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.models.organization import Organization
-from backend.app.schemas.organization import OrganizationCreate, OrganizationUpdate, OrganizationResponse
-from backend.app.api.v1.deps import require_admin_user
+from backend.app.schemas.organization import (
+    OrganizationCreate,
+    OrganizationUpdate,
+    OrganizationResponse,
+    OrganizationDetailResponse,
+)
+from backend.app.api.v1.deps import (
+    require_admin_user,
+    require_roles,
+    get_current_active_org_id,
+)
 
 router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
@@ -13,6 +22,21 @@ router = APIRouter(prefix="/organizations", tags=["Organizations"])
 def list_organizations(db: Session = Depends(get_db)):
     """Lists registered pharmaceutical manufacturers and organizations."""
     return db.query(Organization).order_by(Organization.name).all()
+
+
+@router.get("/me", response_model=OrganizationDetailResponse)
+def get_my_organization(
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles(["SUPER_ADMIN", "ORG_ADMIN", "BRANCH_ADMIN", "OPERATOR", "VIEWER"]))
+):
+    """
+    Returns the organization profile and associated branches of the currently authenticated user.
+    """
+    org_id = get_current_active_org_id(current_user)
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return org
 
 
 @router.post("", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)
@@ -39,10 +63,33 @@ def create_organization(
     return org
 
 
-@router.get("/{id}", response_model=OrganizationResponse)
+@router.get("/{id}", response_model=OrganizationDetailResponse)
 def get_organization(id: int, db: Session = Depends(get_db)):
-    """Retrieves organization details by ID."""
+    """Retrieves organization details by ID with associated branches."""
     org = db.query(Organization).filter(Organization.id == id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
     return org
+
+
+@router.patch("/{id}", response_model=OrganizationResponse)
+@router.put("/{id}", response_model=OrganizationResponse)
+def update_organization(
+    id: int,
+    req: OrganizationUpdate,
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin_user)
+):
+    """Updates organization details (admin only)."""
+    org = db.query(Organization).filter(Organization.id == id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    update_data = req.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(org, field, value)
+
+    db.commit()
+    db.refresh(org)
+    return org
+
