@@ -34,9 +34,23 @@ VALUES
 (4, 'Micro Labs Global', 'LIC-KA-2026-004', 'admin@microlabs-demo.com', 'Race Course Road, Bangalore')
 ON CONFLICT (name) DO NOTHING;""")
 
-out.append("""INSERT INTO users (id, organization_id, name, email, password_hash, role, is_active)
+out.append("\n-- ==============================================================================")
+out.append("-- SEED BRANCHES")
+out.append("-- ==============================================================================")
+out.append("""INSERT INTO branches (id, organization_id, name, code, address, city, state, contact_email, is_active)
 VALUES
-(1, 1, 'Dr. Rajiv Sharma', 'admin@pharma.com', '$2b$12$e8iV7E1ePvZzQxMh6w1wte5L92d3v9W6x0L6v4y1A5g4R2n0Q7G6e', 'company_admin', TRUE)
+(1, 1, 'Main Packaging Unit - Mumbai', 'BR-MUM-01', 'Worli Pharma City, Mumbai', 'Mumbai', 'Maharashtra', 'mumbai.plant@apexpharma.com', TRUE),
+(2, 2, 'Cipla Formulation Lab - Vikhroli', 'BR-VIK-02', 'Vikhroli, Mumbai', 'Mumbai', 'Maharashtra', 'vikhroli@cipla-demo.com', TRUE),
+(3, 3, 'GSK Bangalore Tech Hub', 'BR-BLR-01', 'Bangalore Tech Park', 'Bangalore', 'Karnataka', 'bangalore@gsk-demo.com', TRUE),
+(4, 4, 'Micro Labs Peenya Unit', 'BR-PEE-01', 'Peenya Industrial Area, Bangalore', 'Bangalore', 'Karnataka', 'peenya@microlabs-demo.com', TRUE)
+ON CONFLICT (id) DO NOTHING;""")
+
+out.append("\n-- ==============================================================================")
+out.append("-- SEED USERS")
+out.append("-- ==============================================================================")
+out.append("""INSERT INTO users (id, organization_id, branch_id, name, email, password_hash, role, is_active)
+VALUES
+(1, 1, 1, 'Dr. Rajiv Sharma', 'admin@pharma.com', '$2b$12$e8iV7E1ePvZzQxMh6w1wte5L92d3v9W6x0L6v4y1A5g4R2n0Q7G6e', 'ORG_ADMIN', TRUE)
 ON CONFLICT (email) DO NOTHING;""")
 
 out.append("\n-- ==============================================================================")
@@ -63,8 +77,8 @@ for idx, m in enumerate(MEDICINES_DATA, 1):
     act_json = json.dumps(m["active_ingredients"])
     inact_json = json.dumps(m["inactive_excipients"])
 
-    med_sql = f"""INSERT INTO medicines (id, organization_id, brand_name, generic_name, category, manufacturer, dosage_form, strength, active_ingredients, inactive_excipients, tablet_shape, tablet_color, score_line, coating_type, indications, dosage_instructions, warnings_and_precautions, side_effects, storage_conditions, schedule_type, voice_summary_en, voice_summary_hi, voice_summary_mr)
-VALUES ({idx}, {org_id}, {esc(m['brand_name'])}, {esc(m['generic_name'])}, {esc(m['category'])}, {esc(m['manufacturer'])}, {esc(m['dosage_form'])}, {esc(m['strength'])}, {esc(act_json)}, {esc(inact_json)}, {esc(m['tablet_shape'])}, {esc(m['tablet_color'])}, {esc(m['score_line'])}, {esc(m['coating_type'])}, {esc(m['indications'])}, {esc(m['dosage_instructions'])}, {esc(m['warnings_and_precautions'])}, {esc(m.get('side_effects'))}, {esc(m['storage_conditions'])}, {esc(m['schedule_type'])}, {esc(m['voice_summary_en'])}, {esc(m['voice_summary_hi'])}, {esc(m['voice_summary_mr'])})
+    med_sql = f"""INSERT INTO medicines (id, organization_id, brand_name, generic_name, category, manufacturer, dosage_form, strength, active_ingredients, inactive_excipients, tablet_shape, tablet_color, score_line, coating_type, indications, dosage_instructions, warnings_and_precautions, side_effects, storage_conditions, schedule_type, voice_summary_en, voice_summary_hi, voice_summary_mr, status)
+VALUES ({idx}, {org_id}, {esc(m['brand_name'])}, {esc(m['generic_name'])}, {esc(m['category'])}, {esc(m['manufacturer'])}, {esc(m['dosage_form'])}, {esc(m['strength'])}, {esc(act_json)}, {esc(inact_json)}, {esc(m['tablet_shape'])}, {esc(m['tablet_color'])}, {esc(m['score_line'])}, {esc(m['coating_type'])}, {esc(m['indications'])}, {esc(m['dosage_instructions'])}, {esc(m['warnings_and_precautions'])}, {esc(m.get('side_effects'))}, {esc(m['storage_conditions'])}, {esc(m['schedule_type'])}, {esc(m['voice_summary_en'])}, {esc(m['voice_summary_hi'])}, {esc(m['voice_summary_mr'])}, 'active')
 ON CONFLICT (id) DO NOTHING;"""
     out.append(med_sql)
 
@@ -79,8 +93,8 @@ ON CONFLICT (id) DO NOTHING;"""
         b_no = f"BT-2026-{idx+100}"
 
     mrp = round(25.0 + (idx * 3.5), 2)
-    batch_sql = f"""INSERT INTO batches (id, medicine_id, batch_no, mfg_date, exp_date, quantity, mrp, status)
-VALUES ({idx}, {idx}, {esc(b_no)}, {esc(mfg_d)}, {esc(exp_d)}, 50000, {mrp}, 'active')
+    batch_sql = f"""INSERT INTO batches (id, medicine_id, branch_id, created_by, batch_no, mfg_date, exp_date, quantity, mrp, status)
+VALUES ({idx}, {idx}, {org_id}, 1, {esc(b_no)}, {esc(mfg_d)}, {esc(exp_d)}, 50000, {mrp}, 'active')
 ON CONFLICT (id) DO NOTHING;"""
     out.append(batch_sql)
 
@@ -101,10 +115,12 @@ ON CONFLICT (id) DO NOTHING;"""
 # Set sequences
 out.append("""
 SELECT setval(pg_get_serial_sequence('organizations', 'id'), COALESCE(MAX(id), 1)) FROM organizations;
+SELECT setval(pg_get_serial_sequence('branches', 'id'), COALESCE(MAX(id), 1)) FROM branches;
 SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE(MAX(id), 1)) FROM users;
 SELECT setval(pg_get_serial_sequence('medicines', 'id'), COALESCE(MAX(id), 1)) FROM medicines;
 SELECT setval(pg_get_serial_sequence('batches', 'id'), COALESCE(MAX(id), 1)) FROM batches;
 SELECT setval(pg_get_serial_sequence('codes', 'id'), COALESCE(MAX(id), 1)) FROM codes;
+SELECT setval(pg_get_serial_sequence('audit_logs', 'id'), COALESCE(MAX(id), 1)) FROM audit_logs;
 """)
 
 with open("docs/SUPABASE_FULL_SEED.sql", "w", encoding="utf-8") as f:

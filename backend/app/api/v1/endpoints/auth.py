@@ -17,6 +17,7 @@ from backend.app.schemas.auth import (
     LogoutResponse,
 )
 from backend.app.api.v1.deps import get_current_user, normalize_role
+from backend.app.services.audit_service import log_audit_event
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -66,6 +67,17 @@ def signup(req: SignupRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
+    log_audit_event(
+        db=db,
+        action="USER_REGISTERED",
+        user_id=new_user.id,
+        organization_id=new_user.organization_id,
+        branch_id=new_user.branch_id,
+        entity_type="user",
+        entity_id=new_user.id,
+        details={"email": new_user.email, "role": new_user.role},
+    )
+
     token = create_access_token(
         subject=new_user.id,
         extra_claims={
@@ -107,6 +119,17 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
             detail="Account is inactive"
         )
 
+    log_audit_event(
+        db=db,
+        action="LOGIN",
+        user_id=user.id,
+        organization_id=user.organization_id,
+        branch_id=user.branch_id,
+        entity_type="user",
+        entity_id=user.id,
+        details={"email": user.email, "role": user.role},
+    )
+
     org_name = user.organization.name if user.organization else None
     branch_name = user.branch.name if user.branch else None
 
@@ -135,11 +158,22 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/refresh", response_model=RefreshTokenResponse)
 def refresh_token(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Refreshes the caller's JWT access token."""
     if not current_user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+
+    log_audit_event(
+        db=db,
+        action="REFRESH_TOKEN",
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        branch_id=current_user.branch_id,
+        entity_type="user",
+        entity_id=current_user.id,
+    )
 
     new_token = create_access_token(
         subject=current_user.id,
@@ -161,10 +195,24 @@ def refresh_token(
 
 
 @router.post("/logout", response_model=LogoutResponse)
-def logout(current_user: User = Depends(get_current_user)):
+def logout(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Logs out current user session."""
     if not current_user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    log_audit_event(
+        db=db,
+        action="LOGOUT",
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        branch_id=current_user.branch_id,
+        entity_type="user",
+        entity_id=current_user.id,
+    )
+
     return LogoutResponse(status="success", message="Successfully logged out")
 
 

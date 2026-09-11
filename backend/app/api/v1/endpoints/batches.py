@@ -6,6 +6,7 @@ from backend.app.models.batch import Batch
 from backend.app.models.medicine import Medicine
 from backend.app.schemas.batch import BatchCreate, BatchUpdate, BatchResponse, BatchDetailResponse
 from backend.app.api.v1.deps import get_current_user, normalize_role
+from backend.app.services.audit_service import log_audit_event
 
 router = APIRouter(prefix="/batches", tags=["Batches"])
 
@@ -117,6 +118,23 @@ def create_batch(
     db.add(batch)
     db.commit()
     db.refresh(batch)
+
+    log_audit_event(
+        db=db,
+        action="BATCH_CREATED",
+        user_id=current_user.id if current_user else None,
+        organization_id=med.organization_id,
+        branch_id=batch.branch_id,
+        entity_type="batch",
+        entity_id=batch.id,
+        details={
+            "batch_no": batch.batch_no,
+            "medicine_id": batch.medicine_id,
+            "quantity": batch.quantity,
+            "status": batch.status,
+        },
+    )
+
     return batch
 
 
@@ -190,5 +208,17 @@ def update_batch(
 
     db.commit()
     db.refresh(batch)
+
+    log_audit_event(
+        db=db,
+        action="BATCH_UPDATED",
+        user_id=current_user.id if current_user else None,
+        organization_id=batch.medicine.organization_id if batch.medicine else None,
+        branch_id=batch.branch_id,
+        entity_type="batch",
+        entity_id=batch.id,
+        details={"batch_no": batch.batch_no, "changes": update_data},
+    )
+
     return batch
 

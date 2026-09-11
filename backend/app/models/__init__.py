@@ -7,6 +7,7 @@ from backend.app.models.batch import Batch
 from backend.app.models.code import Code
 from backend.app.models.scan import Scan
 from backend.app.models.localization import Localization
+from backend.app.models.audit_log import AuditLog
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "Code",
     "Scan",
     "Localization",
+    "AuditLog",
 ]

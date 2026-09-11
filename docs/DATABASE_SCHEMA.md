@@ -163,3 +163,21 @@ Comprehensive audit trail for every verification event across the globe.
 | `location_lng` | Float | Nullable | GPS Longitude |
 | `timestamp` | DateTime | Indexed, Default UTC | Event timestamp |
 
+---
+
+### 7. `audit_logs`
+Authoritative audit trail of administrative and security actions across the platform.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | Integer | PK, Auto-increment | Unique audit entry ID |
+| `user_id` | Integer | FK(`users.id`), Nullable, Indexed | User who performed the action |
+| `organization_id` | Integer | FK(`organizations.id`), Nullable, Indexed | Scoped tenant organization |
+| `branch_id` | Integer | FK(`branches.id`), Nullable, Indexed | Associated branch facility |
+| `action` | String(100) | Indexed, Not Null | Event type (`LOGIN`, `LOGOUT`, `BATCH_CREATED`, `CODE_GENERATED`, etc.) |
+| `entity_type` | String(100) | Indexed, Nullable | Target entity type (`batch`, `medicine`, `code`, `user`) |
+| `entity_id` | String(100) | Indexed, Nullable | Target entity identifier |
+| `details` | Text (JSON) | Nullable | Sanitized payload / metadata (secrets redacted) |
+| `ip_address` | String(64) | Nullable | Origin IP address |
+| `created_at` | DateTime | Indexed, Default UTC | Audit event timestamp |
+

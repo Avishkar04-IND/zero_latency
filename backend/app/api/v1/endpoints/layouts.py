@@ -15,6 +15,7 @@ from backend.app.schemas.layout import (
     LayoutPrintDataResponse,
     LayoutBatchPrintDataResponse,
 )
+from backend.app.services.audit_service import log_audit_event
 
 router = APIRouter(prefix="/layouts", tags=["Layout Engine Integration"])
 
@@ -131,7 +132,15 @@ def get_layout_print_data(code_or_serial: str, db: Session = Depends(get_db)):
             detail=f"Medicine code '{code_or_serial}' not found in registry"
         )
 
-    return build_layout_print_data(code)
+    res = build_layout_print_data(code)
+    log_audit_event(
+        db=db,
+        action="LAYOUT_REQUESTED",
+        entity_type="code",
+        entity_id=code.serial_number,
+        details={"batch_no": code.batch.batch_no if code.batch else None}
+    )
+    return res
 
 
 @router.get("/print-data/batch/{batch_id}", response_model=LayoutBatchPrintDataResponse)
@@ -198,7 +207,7 @@ def get_layout_batch_print_data(
         status=batch.status,
     )
 
-    return LayoutBatchPrintDataResponse(
+    resp = LayoutBatchPrintDataResponse(
         batch=batch_info,
         medicine=med_info,
         manufacturer=mfg_info,
@@ -207,3 +216,13 @@ def get_layout_batch_print_data(
         total_codes=len(unit_responses),
         unit_codes=unit_responses,
     )
+
+    log_audit_event(
+        db=db,
+        action="LAYOUT_BATCH_REQUESTED",
+        entity_type="batch",
+        entity_id=batch.id,
+        details={"batch_no": batch.batch_no, "total_codes": len(unit_responses)}
+    )
+
+    return resp
