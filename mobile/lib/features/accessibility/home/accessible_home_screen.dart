@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
+import '../../../core/accessibility/accessibility_theme.dart';
 import '../../../core/accessibility/talkback_helpers.dart';
 import '../../../services/tts/tts_service.dart';
+import '../../../services/haptics/haptics_service.dart';
 import '../../../services/api/api_service.dart';
+import '../../../shared/widgets/accessible_buttons.dart';
+import '../../../shared/widgets/accessible_cards.dart';
+import '../../../shared/widgets/accessible_states.dart';
 import '../gestures/accessible_gesture_controller.dart';
-import '../scanner/accessible_scanner_screen.dart';
-import '../assistant/accessible_assistant_screen.dart';
-import '../history/accessible_history_screen.dart';
-import '../settings/accessible_settings_screen.dart';
+import '../navigation/accessibility_router.dart';
+
+enum AccessibilityHomeState {
+  normal,
+  loading,
+  voiceDisabled,
+  offline,
+  error,
+}
 
 class AccessibleHomeScreen extends StatefulWidget {
   final TTSService ttsService;
@@ -23,188 +33,234 @@ class AccessibleHomeScreen extends StatefulWidget {
 }
 
 class _AccessibleHomeScreenState extends State<AccessibleHomeScreen> {
+  AccessibilityHomeState _currentState = AccessibilityHomeState.normal;
+  bool _isVoiceMuted = false;
+  String _errorMessage = '';
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.ttsService.speak(
-        "Accessible Medicine App Home. Double tap anywhere to start scanning. Long press for Voice Assistant. Two finger tap for help.",
-      );
+      _speakWelcome();
     });
   }
 
-  void _navigateToScanner() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AccessibleScannerScreen(
-          ttsService: widget.ttsService,
-          apiService: widget.apiService,
-        ),
-      ),
-    );
+  void _speakWelcome() {
+    if (!_isVoiceMuted) {
+      widget.ttsService.speak(
+        "Welcome to Zero Latency. Double tap Scan Medicine to begin.",
+      );
+    }
   }
 
-  void _navigateToAssistant() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AccessibleAssistantScreen(
-          ttsService: widget.ttsService,
-          apiService: widget.apiService,
-        ),
-      ),
-    );
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
   }
 
-  void _navigateToHistory() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AccessibleHistoryScreen(
-          ttsService: widget.ttsService,
-          apiService: widget.apiService,
-        ),
-      ),
-    );
+  void _onScanPressed() {
+    HapticsService.verifiedAuthentic();
+    AccessibilityRouter.navigateToScanner(context, widget.ttsService, widget.apiService);
   }
 
-  void _navigateToSettings() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AccessibleSettingsScreen(
-          ttsService: widget.ttsService,
-        ),
-      ),
-    );
+  void _onAssistantPressed() {
+    HapticsService.codeDetected();
+    AccessibilityRouter.navigateToAssistant(context, widget.ttsService, widget.apiService);
+  }
+
+  void _onHistoryPressed() {
+    HapticsService.scanningTick();
+    AccessibilityRouter.navigateToHistory(context, widget.ttsService, widget.apiService);
+  }
+
+  void _onSettingsPressed() {
+    HapticsService.scanningTick();
+    AccessibilityRouter.navigateToSettings(context, widget.ttsService);
+  }
+
+  void _onHelpPressed() {
+    HapticsService.scanningTick();
+    AccessibilityRouter.navigateToHelp(context, widget.ttsService);
   }
 
   @override
   Widget build(BuildContext context) {
     return AccessibleGestureController(
       ttsService: widget.ttsService,
-      onDoubleTapScan: _navigateToScanner,
-      onLongPressAssistant: _navigateToAssistant,
-      onSwipeRightNext: _navigateToHistory,
-      onSwipeDownRepeat: () {
-        widget.ttsService.speak(
-          "Accessible Medicine Home. Double tap to scan. Long press for assistant. Swipe right for history. Swipe left for settings.",
-        );
-      },
+      onDoubleTapScan: _onScanPressed,
+      onLongPressAssistant: _onAssistantPressed,
+      onSwipeRightNext: _onHistoryPressed,
+      onSwipeLeftPrevious: _onSettingsPressed,
+      onSwipeDownRepeat: _speakWelcome,
+      onTwoFingerTapHelp: _onHelpPressed,
       child: Scaffold(
+        backgroundColor: AccessibilityTheme.background,
         appBar: AppBar(
-          title: const Text('Accessible Medicine Assistant'),
-          backgroundColor: Colors.black,
+          backgroundColor: AccessibilityTheme.background,
+          elevation: 0,
+          title: TalkBackSemantics(
+            label: 'Zero Latency Accessible Medicine App Home',
+            isHeader: true,
+            child: Row(
+              children: const [
+                Icon(Icons.shield_outlined, color: AccessibilityTheme.primary, size: 28),
+                SizedBox(width: 10),
+                Text(
+                  'ZERO LATENCY',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.extrabold,
+                    color: AccessibilityTheme.accessibilityHighlight,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
+        body: SafeArea(
+          child: _buildBodyStateContent(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBodyStateContent() {
+    switch (_currentState) {
+      case AccessibilityHomeState.loading:
+        return const AccessibleLoadingState(message: 'Initializing Zero Latency Accessibility Services...');
+      case AccessibilityHomeState.error:
+        return AccessibleErrorState(
+          message: _errorMessage.isEmpty ? 'Failed to connect to core service.' : _errorMessage,
+          onRetry: () {
+            setState(() {
+              _currentState = AccessibilityHomeState.normal;
+            });
+            _speakWelcome();
+          },
+        );
+      case AccessibilityHomeState.normal:
+      case AccessibilityHomeState.voiceDisabled:
+      case AccessibilityHomeState.offline:
+      default:
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // 1. Time-aware Greeting
               TalkBackSemantics(
-                label: "Scan Medicine Code Button. Large yellow button. Double tap to open camera scanner.",
-                hint: "Triggers DataMatrix and QR code scanner",
+                label: '${_getGreeting()}. Welcome to Zero Latency Accessible Medicine Platform.',
                 isHeader: true,
-                onTap: _navigateToScanner,
-                child: Container(
-                  height: 140,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFD700),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.qr_code_scanner, size: 56, color: Colors.black),
-                        SizedBox(height: 8),
-                        Text(
-                          'SCAN MEDICINE CODE',
-                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TalkBackSemantics(
-                        label: "Voice Assistant Button. Cyan button. Long press or tap to speak query.",
-                        onTap: _navigateToAssistant,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00FFFF),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
-                                Icon(Icons.mic, size: 48, color: Colors.black),
-                                SizedBox(height: 8),
-                                Text('VOICE\nASSISTANT', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-                              ],
-                            ),
-                          ),
-                        ),
+                    Text(
+                      _getGreeting(),
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AccessibilityTheme.textPrimary,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TalkBackSemantics(
-                        label: "Scan History Button. Green button. Tap to hear previous scans.",
-                        onTap: _navigateToHistory,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF33FF99),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
-                                Icon(Icons.history, size: 48, color: Colors.black),
-                                SizedBox(height: 8),
-                                Text('SCAN\nHISTORY', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-                              ],
-                            ),
-                          ),
-                        ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Screen-free & voice-guided verification',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AccessibilityTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              TalkBackSemantics(
-                label: "Settings Button. Large grey button. Tap for accessibility settings.",
-                onTap: _navigateToSettings,
-                child: Container(
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF333333),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.settings, size: 32, color: Colors.white),
-                      SizedBox(width: 12),
-                      Text('ACCESSIBILITY SETTINGS', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                    ],
-                  ),
+
+              // 2. Voice Guidance Control Banner
+              VoiceGuidanceBanner(
+                isVoiceEnabled: !_isVoiceMuted,
+                onRepeatPressed: _speakWelcome,
+                onToggleVoice: () {
+                  setState(() {
+                    _isVoiceMuted = !_isVoiceMuted;
+                  });
+                  if (!_isVoiceMuted) {
+                    widget.ttsService.speak("Voice guidance enabled.");
+                  }
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // 3. DOMINANT PRIMARY SCAN ACTION
+              AccessiblePrimaryButton(
+                label: 'SCAN MEDICINE',
+                semanticHint: 'Double tap to open voice-guided camera scanner',
+                icon: Icons.qr_code_scanner,
+                height: 120,
+                backgroundColor: AccessibilityTheme.accessibilityHighlight,
+                foregroundColor: AccessibilityTheme.textDark,
+                onPressed: _onScanPressed,
+              ),
+              const SizedBox(height: 20),
+
+              // 4. Section Heading
+              const Text(
+                'QUICK ACTIONS',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AccessibilityTheme.primary,
+                  letterSpacing: 1.0,
                 ),
               ),
+              const SizedBox(height: 12),
+
+              // 5. Action Cards
+              AccessibleCard(
+                label: 'Voice Assistant Card. Double tap to speak questions about dosage or storage.',
+                title: 'Voice Assistant',
+                subtitle: 'Ask about dosage, storage, or medicine warnings',
+                icon: Icons.mic_external_on,
+                accentColor: AccessibilityTheme.primary,
+                onTap: _onAssistantPressed,
+              ),
+              const SizedBox(height: 12),
+
+              AccessibleCard(
+                label: 'Scan History Card. Double tap to review past medicine verifications.',
+                title: 'Scan History',
+                subtitle: 'Review previous authentic & expired scans',
+                icon: Icons.history,
+                accentColor: AccessibilityTheme.success,
+                onTap: _onHistoryPressed,
+              ),
+              const SizedBox(height: 12),
+
+              AccessibleCard(
+                label: 'Accessibility Settings Card. Adjust voice speed and vibration feedback.',
+                title: 'Accessibility Settings',
+                subtitle: 'Configure speech rate and haptic vibrations',
+                icon: Icons.settings_accessibility,
+                accentColor: AccessibilityTheme.warning,
+                onTap: _onSettingsPressed,
+              ),
+              const SizedBox(height: 12),
+
+              AccessibleCard(
+                label: 'Help and Gesture Guide Card. Double tap to view touch and swipe shortcuts.',
+                title: 'Help & Gesture Guide',
+                subtitle: 'View screen reader & non-visual gesture shortcuts',
+                icon: Icons.help_outline,
+                accentColor: AccessibilityTheme.textSecondary,
+                onTap: _onHelpPressed,
+              ),
+              const SizedBox(height: 24),
             ],
           ),
-        ),
-      ),
-    );
+        );
+    }
   }
 }
