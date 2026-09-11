@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 0.1.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.4.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -13,10 +13,11 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.6
   http: ^1.2.0
-  flutter_tts: ^3.8.5
-  speech_to_text: ^6.6.0
-  vibration: ^1.8.4
+  flutter_tts: ^4.2.5
+  speech_to_text: ^7.4.0
+  vibration: ^3.2.1
   mobile_scanner: ^5.0.0
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
