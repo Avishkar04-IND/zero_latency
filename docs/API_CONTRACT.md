@@ -206,57 +206,148 @@
 
 ---
 
-## 7. Layout Recommendation APIs
+## 7. Layout Optimization & Recommendation APIs
 
-### Endpoint: Optimize Package Layout
+> **ARCHITECTURAL SCOPE & BOUNDARIES**:
+> - The Layout Engine (`/layout-engine/`, port `8001`) operates **purely in-memory** and **does NOT connect to PostgreSQL**.
+> - The Layout Engine does **NOT verify pharmaceutical authenticity or cryptographic signatures**. Verification is exclusively handled by `/api/v1/verification/verify`.
+> - For identical packaging inputs, the Layout Engine produces deterministic, collision-free placements.
+
+### Endpoint: Optimize Package Layout (Primary Integration Route)
 * **Endpoint**: `/api/v1/layout/optimize`
 * **HTTP Method**: `POST`
 * **Authentication**: Internal Service API Key / Bearer Token
-* **Request**:
+* **Description**: Accepts either standard `LayoutRequest` or structured backend print data (incorporating `medicine`, `batch`, and `code`/`codes` from `/api/v1/medicines`, `/api/v1/batches`, and `/api/v1/codes/generate`).
+* **Field Mappings**:
+  - `dosage` → `strength`
+  - `batch_number` → `batch`
+  - `manufacturing_date` → `mfg`
+  - `expiry_date` → `exp`
+  - `serial_number` → human-readable serial text (`id="serial_no"`, formatted `"SN: <serial_number>"`)
+  - Authoritative values are preserved; aliases never overwrite existing fields.
+* **Code Support**:
+  - Symbologies: `QR` (`qr`, `qrcode`), `DATAMATRIX` (`datamatrix`), `BARCODE`, `HUMAN_READABLE` (case-insensitive).
+  - Square Sizing: When only `min_size_mm` / `minimum_code_size_mm` is provided for QR/DataMatrix, width and height default to square (`min_size` $\times$ `min_size`).
+  - Dual Codes: Supports concurrent placement of a scannable 2D code (`batch_code`) and human-readable serial text (`serial_no`).
+* **Structured Backend Request Example**:
   ```json
   {
-    "package_dimensions": { "length": 0.0, "width": 0.0, "height": 0.0 },
-    "code_type": "DATAMATRIX",
-    "text_content": { "name": "", "dosage": "", "warning": "" },
-    "optimization_target": "ACCESSIBILITY|COST|BALANCED"
+    "package": {
+      "package_width_mm": 120.0,
+      "package_height_mm": 60.0,
+      "printing_area_width_mm": 105.0,
+      "printing_area_height_mm": 50.0,
+      "printing_area_x_mm": 7.5,
+      "printing_area_y_mm": 5.0
+    },
+    "tablet": {
+      "tablet_count": 6,
+      "tablet_diameter_mm": 9.0
+    },
+    "medicine": {
+      "name": "Amoxicillin and Potassium Clavulanate",
+      "dosage": "625 mg",
+      "manufacturer": "HealthGuard Pharma"
+    },
+    "batch": {
+      "batch_number": "BN-2026-9901",
+      "manufacturing_date": "2026-03-01",
+      "expiry_date": "2028-03-01"
+    },
+    "code": {
+      "type": "QR",
+      "value": "https://rx.zero-latency.org/v/BN20269901",
+      "min_size_mm": 12.0,
+      "serial_number": "SN-9901-7788"
+    },
+    "optimization_target": "RECOMMEND"
   }
   ```
 * **Response**:
   ```json
   {
-    "layout_id": "placeholder_uuid",
-    "code_placement": { "x": 0.0, "y": 0.0, "size": 0.0 },
-    "text_placements": [],
-    "cost_score": 0.0,
-    "accessibility_score": 0.0
+    "id": "layout_recommendation_accessibility_001",
+    "success": true,
+    "recommended_strategy": "ACCESSIBILITY",
+    "score": 82.15,
+    "space_utilization": 0.54,
+    "readability": 0.94,
+    "print_efficiency": 0.81,
+    "scan_reliability": 0.96,
+    "cost_efficiency": 0.54,
+    "package": { "..." : "..." },
+    "elements": [
+      { "id": "cavity_1", "type": "tablet_cavity", "x_mm": 77.0, "y_mm": 20.0, "width_mm": 9.0, "height_mm": 9.0 },
+      { "id": "med_name", "type": "text", "content": "Amoxicillin and Potassium Clavulanate", "x_mm": 8.5, "y_mm": 6.0, "width_mm": 85.1, "height_mm": 4.8 },
+      { "id": "med_strength", "type": "text", "content": "625 mg", "x_mm": 8.5, "y_mm": 12.8, "width_mm": 16.0, "height_mm": 4.2 },
+      { "id": "batch_no", "type": "text", "content": "B.No: BN-2026-9901", "x_mm": 8.5, "y_mm": 19.0, "width_mm": 32.4, "height_mm": 3.2 },
+      { "id": "mfg_date", "type": "text", "content": "MFG: 2026-03-01", "x_mm": 26.5, "y_mm": 12.8, "width_mm": 27.0, "height_mm": 3.0 },
+      { "id": "exp_date", "type": "text", "content": "EXP: 2028-03-01", "x_mm": 8.5, "y_mm": 24.2, "width_mm": 27.0, "height_mm": 3.0 },
+      { "id": "batch_code", "type": "code", "content": "https://rx.zero-latency.org/v/BN20269901", "code_type": "qr", "x_mm": 95.6, "y_mm": 6.0, "width_mm": 12.0, "height_mm": 12.0 },
+      { "id": "serial_no", "type": "text", "content": "SN: SN-9901-7788", "x_mm": 42.9, "y_mm": 19.0, "width_mm": 28.8, "height_mm": 3.0 },
+      { "id": "manufacturer", "type": "text", "content": "Mfd: HealthGuard Pharma", "x_mm": 55.5, "y_mm": 12.8, "width_mm": 36.8, "height_mm": 3.0 }
+    ],
+    "alternatives": [
+      { "strategy": "ACCESSIBILITY", "score": 82.15 },
+      { "strategy": "BALANCED", "score": 81.88 },
+      { "strategy": "COST", "score": 80.45 }
+    ],
+    "validation": { "valid": true, "errors": [], "warnings": [] }
   }
   ```
-* **Error Responses**: `400 Bad Request`, `500 Internal Server Error`
+* **Error Responses**: `422 Unprocessable Entity` (Validation), `200 OK with success: false` (Placement failure)
+
+### Endpoint: Recommend Package Layout (Retained Compatibility Route)
+* **Endpoint**: `/api/layouts/recommend`
+* **HTTP Method**: `POST`
+* **Authentication**: Internal Service API Key / Bearer Token
+* **Request**: Standard `LayoutRequest` object with `package`, `tablet`, `code`, `information`, `constraints`.
+* **Response**: Same `LayoutPlan` structure as `/api/v1/layout/optimize`.
 
 ---
 
-## 8. Layout Preview APIs
+## 8. Layout Preview & Export APIs
 
-### Endpoint: Render Layout Preview
-* **Endpoint**: `/api/v1/layout/preview`
+### Endpoint: Render Layout SVG Preview
+* **Endpoint**: `/api/layouts/preview`
 * **HTTP Method**: `POST`
 * **Authentication**: Internal Service API Key / Bearer Token
 * **Request**:
   ```json
   {
-    "layout_id": "placeholder_uuid",
-    "format": "SVG|PDF"
+    "layout": null,
+    "request": {
+      "package": { "..." : "..." },
+      "tablet": { "..." : "..." },
+      "code": { "..." : "..." },
+      "information": { "..." : "..." }
+    }
   }
   ```
 * **Response**:
   ```json
   {
-    "format": "SVG|PDF",
-    "preview_url": "placeholder_url",
-    "raw_vector": "placeholder_svg_content"
+    "success": true,
+    "layout_id": "layout_recommendation_balanced_001",
+    "validation": { "valid": true, "errors": [], "warnings": [] },
+    "svg": "<svg ...>...</svg>"
   }
   ```
-* **Error Responses**: `400 Bad Request`, `404 Not Found`
+* **Error Responses**: `422 Unprocessable Entity`, `400 Bad Request`
+
+### Endpoint: Export Layout PDF
+* **Endpoint**: `/api/layouts/pdf`
+* **HTTP Method**: `POST`
+* **Authentication**: Internal Service API Key / Bearer Token
+* **Request**:
+  ```json
+  {
+    "layout": null,
+    "request": { "..." : "..." }
+  }
+  ```
+* **Response**: Binary stream with `Content-Type: application/pdf` and `Content-Disposition: inline; filename="{layout_id}.pdf"`.
+* **Error Responses**: `422 Unprocessable Entity`, `400 Bad Request` (Placement failure)
 
 ---
 
