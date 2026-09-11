@@ -213,6 +213,15 @@ CREATE TABLE IF NOT EXISTS localizations (
 );
 
 -- ==============================================================================
+-- SCHEMA UPGRADE / COMPATIBILITY MIGRATIONS
+-- (Ensures pre-existing database tables are updated with all latest columns)
+-- ==============================================================================
+ALTER TABLE users ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL;
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active' NOT NULL;
+ALTER TABLE batches ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL;
+ALTER TABLE batches ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+-- ==============================================================================
 -- HIGH-PERFORMANCE INDEXES (For Sub-10ms Mobile Lookups)
 -- ==============================================================================
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

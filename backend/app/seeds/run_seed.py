@@ -5,6 +5,7 @@ from backend.app.core.security import get_password_hash
 # Import all models
 import backend.app.models
 from backend.app.models.organization import Organization
+from backend.app.models.branch import Branch
 from backend.app.models.user import User
 from backend.app.models.medicine import Medicine
 from backend.app.models.batch import Batch
@@ -52,6 +53,34 @@ def seed_database():
 
         default_org_id = list(org_map.values())[0]
 
+        # 1b. Seed Branches for each Organization
+        print("[BRANCHES] Seeding manufacturing branches...")
+        branches_data = [
+            (org_map["Apex National Pharma"], "Main Packaging Unit - Mumbai", "BR-MUM-01", "Worli Pharma City, Mumbai", "Mumbai", "Maharashtra", "mumbai.plant@apexpharma.com"),
+            (org_map["Cipla Laboratories"], "Cipla Formulation Lab - Vikhroli", "BR-VIK-02", "Vikhroli, Mumbai", "Mumbai", "Maharashtra", "vikhroli@cipla-demo.com"),
+            (org_map["GlaxoSmithKline Healthcare"], "GSK Bangalore Tech Hub", "BR-BLR-01", "Bangalore Tech Park", "Bangalore", "Karnataka", "bangalore@gsk-demo.com"),
+            (org_map["Micro Labs Global"], "Micro Labs Peenya Unit", "BR-PEE-01", "Peenya Industrial Area, Bangalore", "Bangalore", "Karnataka", "peenya@microlabs-demo.com"),
+        ]
+        org_branch_map = {}
+        for o_id, b_name, b_code, b_addr, b_city, b_state, b_email in branches_data:
+            branch = db.query(Branch).filter(Branch.name == b_name).first()
+            if not branch:
+                branch = Branch(
+                    organization_id=o_id,
+                    name=b_name,
+                    code=b_code,
+                    address=b_addr,
+                    city=b_city,
+                    state=b_state,
+                    contact_email=b_email,
+                    is_active=True
+                )
+                db.add(branch)
+                db.flush()
+            org_branch_map[o_id] = branch.id
+
+        default_branch_id = org_branch_map.get(default_org_id)
+
         # 2. Create Default Admin User
         print("[USER] Seeding default company admin user...")
         admin_email = "admin@pharma.com"
@@ -61,8 +90,9 @@ def seed_database():
                 name="Dr. Rajiv Sharma",
                 email=admin_email,
                 password_hash=get_password_hash("Admin@12345"),
-                role="company_admin",
+                role="ORG_ADMIN",
                 organization_id=default_org_id,
+                branch_id=default_branch_id,
                 is_active=True
             )
             db.add(admin)
@@ -111,7 +141,8 @@ def seed_database():
                     schedule_type=med_data["schedule_type"],
                     voice_summary_en=med_data["voice_summary_en"],
                     voice_summary_hi=med_data["voice_summary_hi"],
-                    voice_summary_mr=med_data["voice_summary_mr"]
+                    voice_summary_mr=med_data["voice_summary_mr"],
+                    status="active"
                 )
                 db.add(med)
                 db.flush()
@@ -135,6 +166,8 @@ def seed_database():
             if not existing_batch:
                 batch = Batch(
                     medicine_id=med.id,
+                    branch_id=org_branch_map.get(org_id),
+                    created_by=admin.id if admin else None,
                     batch_no=b_no,
                     mfg_date=mfg_d,
                     exp_date=exp_d,

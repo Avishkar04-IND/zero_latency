@@ -114,13 +114,16 @@ ON CONFLICT (id) DO NOTHING;"""
 
 # Set sequences
 out.append("""
-SELECT setval(pg_get_serial_sequence('organizations', 'id'), COALESCE(MAX(id), 1)) FROM organizations;
-SELECT setval(pg_get_serial_sequence('branches', 'id'), COALESCE(MAX(id), 1)) FROM branches;
-SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE(MAX(id), 1)) FROM users;
-SELECT setval(pg_get_serial_sequence('medicines', 'id'), COALESCE(MAX(id), 1)) FROM medicines;
-SELECT setval(pg_get_serial_sequence('batches', 'id'), COALESCE(MAX(id), 1)) FROM batches;
-SELECT setval(pg_get_serial_sequence('codes', 'id'), COALESCE(MAX(id), 1)) FROM codes;
-SELECT setval(pg_get_serial_sequence('audit_logs', 'id'), COALESCE(MAX(id), 1)) FROM audit_logs;
+SELECT setval(pg_get_serial_sequence('organizations', 'id'), COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM organizations;
+SELECT setval(pg_get_serial_sequence('branches', 'id'), COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM branches;
+SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM users;
+SELECT setval(pg_get_serial_sequence('medicines', 'id'), COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM medicines;
+SELECT setval(pg_get_serial_sequence('batches', 'id'), COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM batches;
+SELECT setval(pg_get_serial_sequence('codes', 'id'), COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM codes;
+SELECT setval(pg_get_serial_sequence('scans', 'id'), COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM scans;
+SELECT setval(pg_get_serial_sequence('audit_logs', 'id'), COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM audit_logs;
+SELECT setval(pg_get_serial_sequence('layouts', 'id'), COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM layouts;
+SELECT setval(pg_get_serial_sequence('localizations', 'id'), COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM localizations;
 """)
 
 with open("docs/SUPABASE_FULL_SEED.sql", "w", encoding="utf-8") as f:
