@@ -64,9 +64,19 @@ class AppSettings {
   }
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
-    final speedStr = json['speech_speed'] as String? ?? 'normal';
+    bool parseBool(dynamic val, bool defaultValue) {
+      if (val is bool) return val;
+      if (val is String) {
+        if (val.toLowerCase() == 'true') return true;
+        if (val.toLowerCase() == 'false') return false;
+      }
+      return defaultValue;
+    }
+
+    final speedRaw = json['speech_speed'];
+    final speedStr = speedRaw is String ? speedRaw.toLowerCase() : 'normal';
     SpeechSpeed parsedSpeed;
-    switch (speedStr.toLowerCase()) {
+    switch (speedStr) {
       case 'slow':
         parsedSpeed = SpeechSpeed.slow;
         break;
@@ -78,11 +88,14 @@ class AppSettings {
         parsedSpeed = SpeechSpeed.normal;
     }
 
+    final langRaw = json['language_code'];
+    final langStr = langRaw is String && langRaw.isNotEmpty ? langRaw : 'en-US';
+
     return AppSettings(
-      voiceGuidanceEnabled: json['voice_guidance_enabled'] as bool? ?? true,
-      hapticsEnabled: json['haptics_enabled'] as bool? ?? true,
+      voiceGuidanceEnabled: parseBool(json['voice_guidance_enabled'], true),
+      hapticsEnabled: parseBool(json['haptics_enabled'], true),
       speechSpeed: parsedSpeed,
-      languageCode: json['language_code'] as String? ?? 'en-US',
+      languageCode: langStr,
     );
   }
 
@@ -93,5 +106,25 @@ class AppSettings {
       'speech_speed': speechSpeed.name,
       'language_code': languageCode,
     };
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is AppSettings &&
+        other.voiceGuidanceEnabled == voiceGuidanceEnabled &&
+        other.hapticsEnabled == hapticsEnabled &&
+        other.speechSpeed == speechSpeed &&
+        other.languageCode == languageCode;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      voiceGuidanceEnabled,
+      hapticsEnabled,
+      speechSpeed,
+      languageCode,
+    );
   }
 }

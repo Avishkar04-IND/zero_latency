@@ -46,9 +46,27 @@ class _AccessibleHomeScreenState extends State<AccessibleHomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadSettings();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _speakWelcome();
     });
+  }
+
+  Future<void> _loadSettings() async {
+    if (widget.settingsService != null) {
+      final settings = await widget.settingsService!.getSettings();
+      if (mounted) {
+        setState(() {
+          _isVoiceMuted = !settings.voiceGuidanceEnabled;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isVoiceMuted = !widget.ttsService.isVoiceEnabled;
+        });
+      }
+    }
   }
 
   void _speakWelcome() {
@@ -81,14 +99,15 @@ class _AccessibleHomeScreenState extends State<AccessibleHomeScreen> {
     AccessibilityRouter.navigateToHistory(context, widget.ttsService, widget.apiService, historyService: widget.historyService);
   }
 
-  void _onSettingsPressed() {
+  void _onSettingsPressed() async {
     HapticsService.scanningTick();
-    AccessibilityRouter.navigateToSettings(
+    await AccessibilityRouter.navigateToSettings(
       context,
       widget.ttsService,
       settingsService: widget.settingsService,
       apiService: widget.apiService,
     );
+    _loadSettings();
   }
 
   void _onHelpPressed() {
@@ -122,7 +141,7 @@ class _AccessibleHomeScreenState extends State<AccessibleHomeScreen> {
                   'ZERO LATENCY',
                   style: TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.extrabold,
+                    fontWeight: FontWeight.w800,
                     color: AccessibilityTheme.accessibilityHighlight,
                     letterSpacing: 1.0,
                   ),
@@ -194,11 +213,20 @@ class _AccessibleHomeScreenState extends State<AccessibleHomeScreen> {
               VoiceGuidanceBanner(
                 isVoiceEnabled: !_isVoiceMuted,
                 onRepeatPressed: _speakWelcome,
-                onToggleVoice: () {
+                onToggleVoice: () async {
+                  final newMutedState = !_isVoiceMuted;
+                  final newVoiceEnabled = !newMutedState;
                   setState(() {
-                    _isVoiceMuted = !_isVoiceMuted;
+                    _isVoiceMuted = newMutedState;
                   });
-                  if (!_isVoiceMuted) {
+                  widget.ttsService.isVoiceEnabled = newVoiceEnabled;
+                  if (widget.settingsService != null) {
+                    final current = await widget.settingsService!.getSettings();
+                    await widget.settingsService!.updateSettings(
+                      current.copyWith(voiceGuidanceEnabled: newVoiceEnabled),
+                    );
+                  }
+                  if (newVoiceEnabled) {
                     widget.ttsService.speak("Voice guidance enabled.");
                   }
                 },

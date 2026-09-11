@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_medicine_mobile/shared/models/history_record.dart';
 import 'package:smart_medicine_mobile/shared/models/verification_model.dart';
 import 'package:smart_medicine_mobile/shared/models/medicine_model.dart';
@@ -10,6 +11,9 @@ import 'package:smart_medicine_mobile/services/tts/tts_service.dart';
 
 class MockTTSService extends TTSService {
   final List<String> spokenMessages = [];
+
+  @override
+  void initTts() {}
 
   @override
   Future<void> speak(String text, {bool queue = false}) async {
@@ -112,6 +116,7 @@ void main() {
     late HistoryService historyService;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       historyService = LocalHistoryService();
     });
 
@@ -244,6 +249,7 @@ void main() {
     late HistoryController controller;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       historyService = LocalHistoryService();
       mockTTS = MockTTSService();
       controller = HistoryController(

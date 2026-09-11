@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_medicine_mobile/shared/models/app_settings.dart';
 import 'package:smart_medicine_mobile/services/settings/settings_service.dart';
 import 'package:smart_medicine_mobile/services/settings/local_settings_service.dart';
@@ -8,6 +9,27 @@ import 'package:smart_medicine_mobile/services/haptics/haptics_service.dart';
 
 class MockTTSService extends TTSService {
   final List<String> spokenMessages = [];
+  double _mockSpeechRate = 0.5;
+  bool _mockVoiceEnabled = true;
+
+  @override
+  void initTts() {}
+
+  @override
+  bool get isVoiceEnabled => _mockVoiceEnabled;
+
+  @override
+  set isVoiceEnabled(bool enabled) {
+    _mockVoiceEnabled = enabled;
+  }
+
+  @override
+  double get speechRate => _mockSpeechRate;
+
+  @override
+  Future<void> setSpeechRate(double rate) async {
+    _mockSpeechRate = rate;
+  }
 
   @override
   Future<void> speak(String text, {bool queue = false}) async {
@@ -59,6 +81,23 @@ void main() {
       expect(rehydrated.hapticsEnabled, false);
       expect(rehydrated.speechSpeed, SpeechSpeed.fast);
       expect(rehydrated.languageCode, 'en-US');
+      expect(rehydrated, original);
+    });
+
+    test('Handles invalid or corrupted JSON safely without crashing', () {
+      final corruptJson = {
+        'voice_guidance_enabled': 'not_a_bool',
+        'haptics_enabled': 12345,
+        'speech_speed': 999,
+        'language_code': null,
+      };
+
+      final parsed = AppSettings.fromJson(corruptJson);
+
+      expect(parsed.voiceGuidanceEnabled, true);
+      expect(parsed.hapticsEnabled, true);
+      expect(parsed.speechSpeed, SpeechSpeed.normal);
+      expect(parsed.languageCode, 'en-US');
     });
   });
 
@@ -67,6 +106,7 @@ void main() {
     late MockTTSService mockTTS;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       mockTTS = MockTTSService();
       settingsService = LocalSettingsService(ttsService: mockTTS);
     });
@@ -94,6 +134,27 @@ void main() {
       expect(mockTTS.isVoiceEnabled, false);
     });
 
+    test('Persists settings across fresh service instances', () async {
+      const updated = AppSettings(
+        voiceGuidanceEnabled: false,
+        hapticsEnabled: false,
+        speechSpeed: SpeechSpeed.fast,
+        languageCode: 'en-US',
+      );
+
+      await settingsService.updateSettings(updated);
+
+      final newMockTTS = MockTTSService();
+      final freshService = LocalSettingsService(ttsService: newMockTTS);
+      final reloaded = await freshService.getSettings();
+
+      expect(reloaded.voiceGuidanceEnabled, false);
+      expect(reloaded.hapticsEnabled, false);
+      expect(reloaded.speechSpeed, SpeechSpeed.fast);
+      expect(newMockTTS.isVoiceEnabled, false);
+      expect(newMockTTS.speechRate, 0.75);
+    });
+
     test('Resets settings back to default', () async {
       const custom = AppSettings(
         voiceGuidanceEnabled: false,
@@ -117,6 +178,7 @@ void main() {
     late SettingsController controller;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       mockTTS = MockTTSService();
       settingsService = LocalSettingsService(ttsService: mockTTS);
       controller = SettingsController(

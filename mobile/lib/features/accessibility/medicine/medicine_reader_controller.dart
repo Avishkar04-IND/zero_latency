@@ -60,6 +60,8 @@ class MedicineReaderController extends ValueNotifier<MedicineReaderState> {
           verificationResult: result,
         ));
 
+  MedicineReaderState get state => value;
+
   static List<MedicineReaderSectionData> _buildSections(VerificationResult result) {
     final med = result.medicine;
     final batch = result.batch;

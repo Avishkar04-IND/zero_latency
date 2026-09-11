@@ -149,11 +149,11 @@ class HistoryRecord {
   String toSpokenDetail() {
     final batchStr = batchNumber != 'N/A' ? 'Batch $batchNumber.' : '';
     final expStr = expiryDate != 'N/A' ? 'Expires $expiryDate.' : '';
-    final timeStr = _formatReadableTimestamp(timestamp);
+    final timeStr = formatReadableTimestamp(timestamp);
     return '$medicineName. $formattedStatus status. $batchStr $expStr Scanned $timeStr.';
   }
 
-  static String _formatReadableTimestamp(String isoString) {
+  static String formatReadableTimestamp(String isoString) {
     try {
       final dt = DateTime.parse(isoString);
       final now = DateTime.now();

@@ -126,7 +126,7 @@ class _AccessibleSettingsScreenState extends State<AccessibleSettingsScreen> {
               SizedBox(width: 12),
               Text(
                 'ZERO LATENCY',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.extrabold, color: AccessibilityTheme.accessibilityHighlight),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AccessibilityTheme.accessibilityHighlight),
               ),
             ],
           ),
@@ -188,7 +188,7 @@ class _AccessibleSettingsScreenState extends State<AccessibleSettingsScreen> {
                   'SETTINGS',
                   style: TextStyle(
                     fontSize: 20,
-                    fontWeight: FontWeight.extrabold,
+                    fontWeight: FontWeight.w800,
                     color: AccessibilityTheme.accessibilityHighlight,
                     letterSpacing: 1.0,
                   ),
@@ -339,7 +339,7 @@ class _AccessibleSettingsScreenState extends State<AccessibleSettingsScreen> {
                           isEnabled ? 'ON' : 'OFF',
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.extrabold,
+                            fontWeight: FontWeight.w800,
                             color: statusColor,
                           ),
                         ),
@@ -360,7 +360,7 @@ class _AccessibleSettingsScreenState extends State<AccessibleSettingsScreen> {
             const SizedBox(width: 8),
             Switch(
               value: isEnabled,
-              activeColor: AccessibilityTheme.success,
+              activeThumbColor: AccessibilityTheme.success,
               activeTrackColor: AccessibilityTheme.success.withOpacity(0.3),
               inactiveThumbColor: AccessibilityTheme.textSecondary,
               inactiveTrackColor: Colors.black,
