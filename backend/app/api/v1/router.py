@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from backend.app.api.v1.endpoints import (
     auth,
     organizations,
+    branches,
     medicines,
     batches,
     codes,
@@ -15,6 +16,7 @@ api_router = APIRouter()
 
 api_router.include_router(auth.router)
 api_router.include_router(organizations.router)
+api_router.include_router(branches.router)
 api_router.include_router(medicines.router)
 api_router.include_router(batches.router)
 api_router.include_router(codes.router)

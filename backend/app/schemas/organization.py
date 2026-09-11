@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
+from backend.app.schemas.branch import BranchResponse
 
 
 class OrganizationBase(BaseModel):
@@ -28,3 +29,7 @@ class OrganizationResponse(OrganizationBase):
 
     id: int
     created_at: Optional[datetime] = None
+
+
+class OrganizationDetailResponse(OrganizationResponse):
+    branches: List[BranchResponse] = []
