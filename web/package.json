@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test src/lib/assistant/__tests__/assistant.test.ts",
+    "test:assistant": "node --experimental-strip-types --test src/lib/assistant/__tests__/assistant.test.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

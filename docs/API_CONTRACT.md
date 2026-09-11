@@ -260,30 +260,116 @@
 
 ---
 
-## 9. Voice Assistant APIs
+## 9. Voice & Text Assistant APIs
 
 ### Endpoint: Process Voice / Chat Query
-* **Endpoint**: `/api/v1/assistant/query`
+* **Primary Endpoint**: `/api/assistant/query`
+* **Compatibility Alias**: `/api/v1/assistant/query`
 * **HTTP Method**: `POST`
-* **Authentication**: Bearer Token / API Key
-* **Request**:
+* **Authentication**: Optional / Public (Accessible by Web Admin and Mobile Flutter accessibility app)
+
+#### Request Schema
+```json
+{
+  "query": "What is the expiry date?",
+  "query_text": "What is the expiry date?",
+  "context": {
+    "medicine": {
+      "brand_name": "Dolo-650",
+      "generic_name": "Paracetamol Tablets IP",
+      "strength": "650 mg",
+      "dosage_form": "Tablet",
+      "manufacturer": "Micro Labs Limited",
+      "active_ingredients": [
+        { "name": "Paracetamol IP", "strength": "650", "unit": "mg", "purpose": "Analgesic & Antipyretic" }
+      ],
+      "storage_conditions": "Store below 30°C in a dry place. Protect from moisture and direct light.",
+      "warnings_and_precautions": "Overdose may cause serious liver damage. Avoid alcohol.",
+      "indications": "Relief of mild to moderate pain and fever.",
+      "schedule_type": "OTC"
+    },
+    "batch": {
+      "batch_no": "BTH-DOLO-2026A1",
+      "mfg_date": "2026-09-01",
+      "exp_date": "2028-09-01",
+      "quantity": 10000,
+      "mrp": 50.0
+    },
+    "verification": {
+      "is_genuine": true,
+      "status": "GENUINE",
+      "risk_score": 0
+    }
+  },
+  "session_id": "optional_session_uuid",
+  "language": "en"
+}
+```
+
+> **Note**: For convenience, flat fields are also supported under `context` (e.g., `context.brand_name`, `context.exp_date`, `context.batch_no`, `context.is_genuine`).
+
+#### Response Schema
+```json
+{
+  "success": true,
+  "intent": "expiry_date",
+  "answer": "The medicine expires on 2028-09-01. The batch is within its registered shelf life.",
+  "source": "verified_medicine_data",
+  "has_verified_context": true,
+  "confidence": 1.0,
+  "data": {
+    "expiry_date": "2028-09-01",
+    "is_expired": false,
+    "batch_no": "BTH-DOLO-2026A1"
+  },
+  "tts_clean_text": "The medicine expires on September 1, 2028. The batch is within its registered shelf life.",
+  "suggested_actions": []
+}
+```
+
+#### Supported Deterministic Intents
+| Intent | Description | Sample Query |
+| :--- | :--- | :--- |
+| `medicine_name` | Product brand and generic name | *"What medicine is this?"*, *"Brand name?"* |
+| `strength` | Active drug strength / potency | *"What is the strength?"*, *"How many mg?"* |
+| `manufacturer` | Registered pharmaceutical manufacturer | *"Who manufactured this drug?"* |
+| `batch_number` | Authoritative batch / lot identifier | *"What is the batch number?"* |
+| `expiry_date` | Expiration date and shelf-life validity | *"When does it expire?"*, *"Is it expired?"* |
+| `dosage_form` | Formulation physical form | *"Is this a tablet or capsule?"*, *"What form is this?"* |
+| `ingredients` | Active pharmaceutical ingredients (APIs) | *"What are the active ingredients?"*, *"Composition?"* |
+| `storage` | Storage instructions and conditions | *"How should I store this?"*, *"Keep in fridge?"* |
+| `warnings` | Safety warnings, precautions, side effects | *"What are the warnings and precautions?"* |
+| `indications` | Approved therapeutic uses | *"What is this used for?"*, *"Why take this?"* |
+| `authenticity` | Verification status against CDSCO ledger | *"Is this medicine authentic and genuine?"* |
+| `dosage_instructions` | General package label directions | *"What are the manufacturer label instructions?"* |
+| `personalized_dosage` | Safety Guardrail (Blocked) | *"How many should I personally take for my fever?"* |
+| `general_greeting` | Assistant introduction & capability guidance | *"Hello"*, *"Hi"* |
+| `unsupported` | Controlled fallback for unverified queries | *"What is the weather?"* |
+
+#### Safety Guardrail Behavior
+1. **Zero Hallucination Policy**: The assistant strictly derives pharmaceutical answers from verified backend data. When verified context is missing or does not contain the requested field, the assistant returns:
+   `"I don't have enough verified medicine information to answer that question."` (`has_verified_context: false`, `source: "unverified_context"`).
+2. **Medical Advice Prohibition**: Individualized dosage queries, diagnostic queries, and prescription requests are deterministically blocked with intent `personalized_dosage`, returning:
+   `"I cannot provide personalized medical diagnosis, prescriptions, or individualized dosage recommendations. Please consult a qualified doctor or licensed healthcare professional for guidance specific to your condition."` (`source: "safety_guardrail"`).
+
+#### Error Responses
+- `400 Bad Request`:
   ```json
   {
-    "session_id": "placeholder_uuid",
-    "input_type": "TEXT|AUDIO",
-    "query_text": "placeholder_user_query",
-    "context": {
-      "current_medicine_id": "placeholder_uuid"
+    "success": false,
+    "error": {
+      "code": "MISSING_QUERY",
+      "message": "A non-empty 'query' string is required."
     }
   }
   ```
-* **Response**:
+- `500 Internal Server Error`:
   ```json
   {
-    "session_id": "placeholder_uuid",
-    "response_text": "placeholder_assistant_response",
-    "audio_url": "placeholder_tts_audio_url",
-    "suggested_actions": []
+    "success": false,
+    "error": {
+      "code": "INTERNAL_ERROR",
+      "message": "An unexpected error occurred processing assistant query."
+    }
   }
   ```
-* **Error Responses**: `400 Bad Request`, `500 Internal Server Error`
