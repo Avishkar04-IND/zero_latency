@@ -6,7 +6,9 @@ enum VerificationStatus {
   expired,
   suspectedCounterfeit,
   recalled,
+  revoked,
   invalid,
+  offlineError,
 }
 
 class VerificationResult {
@@ -33,16 +35,25 @@ class VerificationResult {
     VerificationStatus statusEnum;
     switch (statusStr.toUpperCase()) {
       case 'AUTHENTIC':
+      case 'VERIFIED':
         statusEnum = VerificationStatus.authentic;
         break;
       case 'EXPIRED':
         statusEnum = VerificationStatus.expired;
         break;
       case 'SUSPECTED_COUNTERFEIT':
+      case 'SUSPICIOUS':
         statusEnum = VerificationStatus.suspectedCounterfeit;
         break;
       case 'RECALLED':
         statusEnum = VerificationStatus.recalled;
+        break;
+      case 'REVOKED':
+        statusEnum = VerificationStatus.revoked;
+        break;
+      case 'OFFLINE_ERROR':
+      case 'OFFLINE':
+        statusEnum = VerificationStatus.offlineError;
         break;
       default:
         statusEnum = VerificationStatus.invalid;
@@ -63,19 +74,27 @@ class VerificationResult {
     );
   }
 
-  String toSpokenResult() {
+  String toSpokenHeadline() {
     switch (status) {
       case VerificationStatus.authentic:
-        return 'Verified Authentic. Medicine: ${medicine?.name ?? "Unknown"}. Dosage: ${medicine?.dosage ?? "Unknown"}. Expiry Date: ${batch?.expiryDate ?? "Unknown"}.';
+        return 'Medicine verified. ${medicine?.name ?? "Medicine"} ${medicine?.dosage ?? ""}.';
       case VerificationStatus.expired:
-        return 'Warning! Medicine is EXPIRED. Expiry Date was ${batch?.expiryDate ?? "Unknown"}. Do not consume.';
+        return 'Warning. This medicine has expired. Expiry date was ${batch?.expiryDate ?? "unknown"}. Do not consume.';
       case VerificationStatus.suspectedCounterfeit:
-        return 'ALERT! Suspected Counterfeit Code. This medicine code could not be verified in the database.';
+        return 'Warning. This medicine appears suspicious. Do not rely on this verification.';
       case VerificationStatus.recalled:
-        return 'ALERT! Recalled Medicine Batch. Do not consume this medicine.';
+        return 'Warning. This medicine batch has been recalled.';
+      case VerificationStatus.revoked:
+        return 'Warning. This medicine code has been revoked.';
+      case VerificationStatus.offlineError:
+        return 'Verification could not be completed because the service is unavailable offline.';
       case VerificationStatus.invalid:
       default:
-        return 'Invalid or Unreadable Code scanned. Please scan again.';
+        return 'This medicine code could not be verified.';
     }
+  }
+
+  String toSpokenResult() {
+    return '${toSpokenHeadline()} ${medicine != null ? medicine!.toSpokenSummary() : ""}';
   }
 }

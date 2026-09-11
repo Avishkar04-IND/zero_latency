@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../../core/accessibility/accessibility_theme.dart';
+import '../../../core/accessibility/talkback_helpers.dart';
 import '../../../services/tts/tts_service.dart';
 import '../../../shared/models/verification_model.dart';
+import '../../../shared/widgets/accessible_buttons.dart';
 import '../gestures/accessible_gesture_controller.dart';
+import '../navigation/accessibility_router.dart';
+import 'medicine_reader_controller.dart';
+import 'medicine_information_section.dart';
 
 class AccessibleMedicineReaderScreen extends StatefulWidget {
   final VerificationResult verificationResult;
@@ -18,137 +24,176 @@ class AccessibleMedicineReaderScreen extends StatefulWidget {
 }
 
 class _AccessibleMedicineReaderScreenState extends State<AccessibleMedicineReaderScreen> {
+  late MedicineReaderController _controller;
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
+    _controller = MedicineReaderController(
+      result: widget.verificationResult,
+      ttsService: widget.ttsService,
+    );
+    _controller.addListener(_onControllerStateChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _speakResult();
+      _controller.speakCurrentSection();
     });
   }
 
-  void _speakResult() {
-    widget.ttsService.speak(widget.verificationResult.toSpokenResult());
-  }
-
-  Color _getStatusColor() {
-    switch (widget.verificationResult.status) {
-      case VerificationStatus.authentic:
-        return const Color(0xFF33FF99);
-      case VerificationStatus.expired:
-        return const Color(0xFFFF9900);
-      case VerificationStatus.suspectedCounterfeit:
-      case VerificationStatus.recalled:
-        return const Color(0xFFFF3333);
-      case VerificationStatus.invalid:
-      default:
-        return Colors.grey;
+  void _onControllerStateChanged() {
+    if (mounted) {
+      setState(() {});
     }
   }
 
   @override
+  void dispose() {
+    _controller.removeListener(_onControllerStateChanged);
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final result = widget.verificationResult;
-    final medicine = result.medicine;
-    final batch = result.batch;
-    final statusColor = _getStatusColor();
+    final state = _controller.state;
+    final sections = state.sections;
 
     return AccessibleGestureController(
       ttsService: widget.ttsService,
+      onSwipeRightNext: _controller.nextSection,
+      onSwipeLeftPrevious: _controller.previousSection,
+      onSwipeDownRepeat: _controller.speakCurrentSection,
       onSwipeUpHome: () => Navigator.popUntil(context, (route) => route.isFirst),
-      onSwipeDownRepeat: _speakResult,
+      onTwoFingerTapHelp: () => AccessibilityRouter.navigateToHelp(context, widget.ttsService),
       child: Scaffold(
+        backgroundColor: AccessibilityTheme.background,
         appBar: AppBar(
-          title: const Text('Medicine Verification Info'),
-          backgroundColor: Colors.black,
+          title: Text(
+            'Medicine Reader (${state.currentIndex + 1}/${sections.length})',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: AccessibilityTheme.background,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.help_outline, color: AccessibilityTheme.primary, size: 28),
+              onPressed: () => AccessibilityRouter.navigateToHelp(context, widget.ttsService),
+            ),
+          ],
         ),
-        body: Container(
-          color: Colors.black,
-          padding: const EdgeInsets.all(20.0),
+        body: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      result.status.name.toUpperCase(),
-                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      result.message,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600),
-                    ),
-                  ],
+              // Top Medical Safety & Reader Instructions Header
+              TalkBackSemantics(
+                label: 'Voice-first Medicine Reader active. Section ${state.currentIndex + 1} of ${sections.length}. Swipe right for next info section, swipe left for previous, swipe down to repeat audio.',
+                isHeader: true,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  color: AccessibilityTheme.surface,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.volume_up, color: AccessibilityTheme.accessibilityHighlight, size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Swipe right for NEXT • Swipe left for PREVIOUS',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AccessibilityTheme.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
+
+              // Structured Sections Scrollable List
               Expanded(
-                child: ListView(
-                  children: [
-                    if (medicine != null) ...[
-                      _buildInfoTile('MEDICINE NAME', medicine.name, Icons.medication),
-                      _buildInfoTile('DOSAGE', medicine.dosage, Icons.line_weight),
-                      _buildInfoTile('MANUFACTURER', medicine.manufacturer, Icons.factory),
-                      _buildInfoTile('STORAGE', medicine.storageInstructions, Icons.ac_unit),
-                      _buildInfoTile('WARNINGS', medicine.warnings, Icons.warning_amber),
-                    ],
-                    if (batch != null) ...[
-                      _buildInfoTile('BATCH NUMBER', batch.batchNumber, Icons.inventory_2),
-                      _buildInfoTile('EXPIRY DATE', batch.expiryDate, Icons.calendar_today),
-                    ],
-                  ],
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: sections.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == sections.length) {
+                      // Medical Safety & Source Disclaimer Footer
+                      return Container(
+                        margin: const EdgeInsets.only(top: 16, bottom: 24),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AccessibilityTheme.surface.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: Row(
+                          children: const [
+                            Icon(Icons.shield_outlined, color: AccessibilityTheme.textSecondary, size: 28),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Source: Verified manufacturer database. App does not provide medical diagnosis.',
+                                style: TextStyle(fontSize: 13, color: AccessibilityTheme.textSecondary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    final sec = sections[index];
+                    final isActive = index == state.currentIndex;
+
+                    return MedicineInformationSectionWidget(
+                      section: sec,
+                      isActive: isActive,
+                      onTap: () => _controller.jumpToSection(index),
+                    );
+                  },
                 ),
               ),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFD700),
-                  foregroundColor: Colors.black,
-                  minimumSize: const Size(double.infinity, 64),
+
+              // Bottom Reader Navigation Controls Bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                color: AccessibilityTheme.surface,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: AccessibleIconButton(
+                        icon: Icons.arrow_back,
+                        label: 'Previous Information Section',
+                        hint: 'Reads previous section aloud',
+                        onPressed: _controller.previousSection,
+                        color: state.currentIndex > 0 ? AccessibilityTheme.primary : Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: AccessiblePrimaryButton(
+                        label: 'REPEAT AUDIO',
+                        semanticHint: 'Repeats audio speech for current section',
+                        icon: Icons.replay,
+                        height: 56,
+                        backgroundColor: AccessibilityTheme.accessibilityHighlight,
+                        onPressed: _controller.speakCurrentSection,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AccessibleIconButton(
+                        icon: Icons.arrow_forward,
+                        label: 'Next Information Section',
+                        hint: 'Reads next section aloud',
+                        onPressed: _controller.nextSection,
+                        color: state.currentIndex < sections.length - 1 ? AccessibilityTheme.primary : Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
-                onPressed: _speakResult,
-                icon: const Icon(Icons.volume_up, size: 32),
-                label: const Text('RE-READ DETAILS'),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoTile(String title, String value, IconData icon) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 32, color: const Color(0xFFFFD700)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(value, style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

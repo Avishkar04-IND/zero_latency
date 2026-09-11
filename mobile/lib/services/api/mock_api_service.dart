@@ -11,38 +11,81 @@ class MockApiService implements ApiService {
     await Future.delayed(const Duration(milliseconds: 600));
 
     VerificationResult result;
+    final upperCode = codeData.toUpperCase();
 
-    if (codeData.contains('EXPIRED') || codeData.contains('EXP')) {
+    if (upperCode.contains('EXPIRED') || upperCode.contains('EXP')) {
       result = VerificationResult(
         isValid: false,
         status: VerificationStatus.expired,
         medicine: const MedicineModel(
           id: 'med-002',
           name: 'Amoxicillin Trihydrate',
+          genericName: 'Amoxicillin',
           dosage: '500mg',
           manufacturer: 'Astra Biotech Labs',
-          description: 'Antibiotic for bacterial infections.',
-          storageInstructions: 'Store below 25 degrees Celsius.',
-          warnings: 'Complete full course. Do not take if allergic to penicillin.',
+          description: 'Used for temporary relief of bacterial respiratory and urinary tract infections.',
+          storageInstructions: 'Store below 25 degrees Celsius in a dry place.',
+          warnings: 'Complete full prescribed course. Do not take if allergic to penicillin.',
         ),
         batch: const BatchModel(
           id: 'batch-987',
           batchNumber: 'AMX-2023-88',
-          manufactureDate: '2023-01-10',
-          expiryDate: '2024-01-10',
+          manufactureDate: '10 January 2023',
+          expiryDate: '10 January 2024',
           quantity: 500,
         ),
         scannedAt: DateTime.now().toIso8601String(),
         rawCode: codeData,
-        message: 'Medicine batch is expired.',
+        message: 'Warning. This medicine batch has expired.',
       );
-    } else if (codeData.contains('FAKE') || codeData.contains('INVALID')) {
+    } else if (upperCode.contains('REVOKED') || upperCode.contains('REV')) {
+      result = VerificationResult(
+        isValid: false,
+        status: VerificationStatus.revoked,
+        medicine: const MedicineModel(
+          id: 'med-003',
+          name: 'Lipitor High-Potency',
+          genericName: 'Atorvastatin Calcium',
+          dosage: '20mg',
+          manufacturer: 'BioPharma Global',
+          description: 'Lipid-lowering agent for cardiovascular risk reduction.',
+          storageInstructions: 'Store at 20°C to 25°C.',
+          warnings: 'Batch revoked due to packaging seal inconsistency.',
+        ),
+        batch: const BatchModel(
+          id: 'batch-303',
+          batchNumber: 'LIP-2024-03',
+          manufactureDate: '01 March 2024',
+          expiryDate: '01 March 2026',
+          quantity: 1200,
+        ),
+        scannedAt: DateTime.now().toIso8601String(),
+        rawCode: codeData,
+        message: 'Warning. This medicine code has been revoked.',
+      );
+    } else if (upperCode.contains('FAKE') || upperCode.contains('SUSPICIOUS') || upperCode.contains('COUNTERFEIT')) {
       result = VerificationResult(
         isValid: false,
         status: VerificationStatus.suspectedCounterfeit,
         scannedAt: DateTime.now().toIso8601String(),
         rawCode: codeData,
-        message: 'Suspected counterfeit code detected.',
+        message: 'Warning. This medicine code appears suspicious and is unverified.',
+      );
+    } else if (upperCode.contains('INVALID') || upperCode.contains('UNREADABLE')) {
+      result = VerificationResult(
+        isValid: false,
+        status: VerificationStatus.invalid,
+        scannedAt: DateTime.now().toIso8601String(),
+        rawCode: codeData,
+        message: 'This medicine code could not be verified.',
+      );
+    } else if (upperCode.contains('OFFLINE')) {
+      result = VerificationResult(
+        isValid: false,
+        status: VerificationStatus.offlineError,
+        scannedAt: DateTime.now().toIso8601String(),
+        rawCode: codeData,
+        message: 'Verification could not be completed because the service is unavailable offline.',
       );
     } else {
       result = VerificationResult(
@@ -51,22 +94,23 @@ class MockApiService implements ApiService {
         medicine: const MedicineModel(
           id: 'med-001',
           name: 'Paracetamol Extra',
+          genericName: 'Acetaminophen',
           dosage: '650mg',
           manufacturer: 'Apex Pharma Global',
-          description: 'Analgesic and antipyretic for pain and fever relief.',
-          storageInstructions: 'Keep in a cool dry place away from direct sunlight.',
-          warnings: 'Do not exceed 4 tablets in 24 hours. May cause drowsiness.',
+          description: 'Used for temporary relief of mild to moderate pain and fever.',
+          storageInstructions: 'Store in a cool dry place below 30 degrees Celsius away from direct sunlight.',
+          warnings: 'Follow the instructions on the packaging. Do not exceed 4 tablets in 24 hours.',
         ),
         batch: const BatchModel(
           id: 'batch-101',
           batchNumber: 'PAR-2025-09',
-          manufactureDate: '2025-06-01',
-          expiryDate: '2027-06-01',
+          manufactureDate: '11 September 2026',
+          expiryDate: '10 September 2028',
           quantity: 2000,
         ),
         scannedAt: DateTime.now().toIso8601String(),
         rawCode: codeData.isEmpty ? 'DATAMATRIX-PAR650-BATCH101-SN9988' : codeData,
-        message: 'Authentic medicine verified.',
+        message: 'Medicine verified. Authentic product.',
       );
     }
 
@@ -81,6 +125,7 @@ class MockApiService implements ApiService {
       MedicineModel(
         id: 'med-001',
         name: 'Paracetamol Extra',
+        genericName: 'Acetaminophen',
         dosage: '650mg',
         manufacturer: 'Apex Pharma Global',
         description: 'Pain and fever relief.',
@@ -90,6 +135,7 @@ class MockApiService implements ApiService {
       MedicineModel(
         id: 'med-002',
         name: 'Amoxicillin Trihydrate',
+        genericName: 'Amoxicillin',
         dosage: '500mg',
         manufacturer: 'Astra Biotech Labs',
         description: 'Broad-spectrum antibiotic.',

@@ -4,6 +4,7 @@ import '../../../services/api/api_service.dart';
 import '../../../shared/models/verification_model.dart';
 import '../home/accessible_home_screen.dart';
 import '../scanner/accessible_scanner_screen.dart';
+import '../medicine/accessible_verification_result_screen.dart';
 import '../medicine/accessible_medicine_reader_screen.dart';
 import '../assistant/accessible_assistant_screen.dart';
 import '../history/accessible_history_screen.dart';
@@ -58,6 +59,13 @@ class AccessibilityRouter {
     Navigator.push(
       context,
       createAccessibleRoute(AccessibleHelpScreen(ttsService: tts)),
+    );
+  }
+
+  static void navigateToVerificationResult(BuildContext context, TTSService tts, VerificationResult result) {
+    Navigator.push(
+      context,
+      createAccessibleRoute(AccessibleVerificationResultScreen(result: result, ttsService: tts)),
     );
   }
 

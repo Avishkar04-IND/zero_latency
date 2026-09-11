@@ -6,7 +6,7 @@ import '../../../services/api/api_service.dart';
 import '../../../shared/widgets/accessible_buttons.dart';
 import '../../../shared/widgets/accessible_states.dart';
 import '../gestures/accessible_gesture_controller.dart';
-import '../medicine/accessible_medicine_reader_screen.dart';
+import '../medicine/accessible_verification_result_screen.dart';
 import '../navigation/accessibility_router.dart';
 import 'scanner_controller.dart';
 import 'scanner_state.dart';
@@ -56,13 +56,13 @@ class _AccessibleScannerScreenState extends State<AccessibleScannerScreen> {
 
     final state = _controller.state;
 
-    // Transition to Medicine Reader upon completion of verification
+    // Transition to Verification Result screen upon completion of verification
     if (state.status == ScannerStatus.verificationResult && state.verificationResult != null) {
       Navigator.pushReplacement(
         context,
         AccessibilityRouter.createAccessibleRoute(
-          AccessibleMedicineReaderScreen(
-            verificationResult: state.verificationResult!,
+          AccessibleVerificationResultScreen(
+            result: state.verificationResult!,
             ttsService: widget.ttsService,
           ),
         ),
