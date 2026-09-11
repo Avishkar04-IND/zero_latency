@@ -101,6 +101,7 @@ Master pharmaceutical formulations with chemical composition and physical tablet
 | `voice_summary_en` | Text | Nullable | Voice synthesizer script in English |
 | `voice_summary_hi` | Text | Nullable | Voice synthesizer script in Hindi |
 | `voice_summary_mr` | Text | Nullable | Voice synthesizer script in Marathi |
+| `status` | String(50) | Default 'active' | `active`, `discontinued`, `under_review` |
 | `created_at` | DateTime | Default UTC | Creation timestamp |
 
 ---
@@ -112,6 +113,8 @@ Production lot metadata and expiration timelines.
 |---|---|---|---|
 | `id` | Integer | PK, Auto-increment | Unique batch ID |
 | `medicine_id` | Integer | FK(`medicines.id`), Not Null | Parent medicine ID |
+| `branch_id` | Integer | FK(`branches.id`), Nullable | Manufacturing facility branch ID |
+| `created_by` | Integer | FK(`users.id`), Nullable | User ID who created the batch |
 | `batch_no` | String(100) | Indexed, Not Null | Lot/Batch number (e.g. BT-2026-101) |
 | `mfg_date` | Date | Not Null | Manufacturing date |
 | `exp_date` | Date | Indexed, Not Null | Expiration date |

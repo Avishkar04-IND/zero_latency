@@ -15,6 +15,7 @@ class BatchBase(BaseModel):
 
 class BatchCreate(BatchBase):
     medicine_id: int
+    branch_id: Optional[int] = None
 
 
 class BatchUpdate(BaseModel):
@@ -24,6 +25,7 @@ class BatchUpdate(BaseModel):
     quantity: Optional[int] = None
     mrp: Optional[float] = None
     status: Optional[str] = None
+    branch_id: Optional[int] = None
 
 
 class BatchResponse(BatchBase):
@@ -31,10 +33,13 @@ class BatchResponse(BatchBase):
 
     id: int
     medicine_id: int
+    branch_id: Optional[int] = None
+    created_by: Optional[int] = None
     created_at: Optional[datetime] = None
 
 
 class BatchDetailResponse(BatchResponse):
     model_config = ConfigDict(from_attributes=True)
 
+    branch_name: Optional[str] = None
     medicine: Optional[MedicineSummary] = None

@@ -216,9 +216,70 @@ Lists medicines with live search and category filters.
 ### `GET /medicines/{id}`
 Returns full technical details and chemical composition for a single medicine record.
 
+### `POST /medicines`
+Creates a new master medicine formulation. Organization ID is automatically derived from the authenticated caller's context.
+
+* **Headers:** `Authorization: Bearer <token>`
+* **Request Body:** Complete tablet composition object (brand name, generic name, active ingredients JSON, excipients, tablet shape, color, warnings, voice summaries).
+* **Response (201 Created):** MedicineResponse object with assigned ID.
+
+### `PATCH /medicines/{id}`
+Partially updates medicine specifications, warnings, or lifecycle status (`active`, `discontinued`, `under_review`).
+
+* **Headers:** `Authorization: Bearer <token>`
+* **Response (200 OK):** Updated MedicineResponse object.
+
 ---
 
-## 3. Code Generation (Manufacturer / Web Admin)
+## 4. Production Batch Management
+
+### `POST /batches`
+Creates a manufacturing batch for a registered medicine. Server-side validation requires `exp_date > mfg_date` and `quantity > 0`. Creator identity (`created_by`) and branch facility (`branch_id`) are derived server-side.
+
+* **Headers:** `Authorization: Bearer <token>` (Requires `ORG_ADMIN`, `BRANCH_ADMIN`, or `OPERATOR`)
+* **Request Body:**
+```json
+{
+  "medicine_id": 1,
+  "batch_no": "BT-2026-101",
+  "mfg_date": "2026-06-01",
+  "exp_date": "2028-09-01",
+  "quantity": 50000,
+  "mrp": 32.50,
+  "status": "active",
+  "branch_id": 1
+}
+```
+
+* **Response (201 Created):**
+```json
+{
+  "id": 1,
+  "medicine_id": 1,
+  "branch_id": 1,
+  "created_by": 1,
+  "batch_no": "BT-2026-101",
+  "mfg_date": "2026-06-01",
+  "exp_date": "2028-09-01",
+  "quantity": 50000,
+  "mrp": 32.50,
+  "status": "active",
+  "created_at": "2026-09-11T08:30:00Z"
+}
+```
+
+### `GET /batches`
+Lists manufacturing batches with optional filtering by `medicine_id`, `branch_id`, or `status_filter`. Automatically scopes to the caller's organization.
+
+### `GET /batches/{id}`
+Returns batch record with auto-populated registered medicine specifications and branch name.
+
+### `PATCH /batches/{id}`
+Updates batch attributes, such as updating quantity or setting `status: "recalled"`.
+
+---
+
+## 5. Code Generation (Manufacturer / Web Admin)
 
 ### `POST /codes/generate`
 Generates cryptographically unique, non-sequential serial identifiers and QR/DataMatrix print assets.
