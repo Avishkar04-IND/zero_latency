@@ -1,0 +1,227 @@
+import { test, describe } from "node:test";
+import assert from "node:assert";
+import { processAssistantQuery } from "../engine.ts";
+import type { VerifiedMedicineContext } from "../../../types/assistant";
+
+const SAMPLE_VERIFIED_CONTEXT: VerifiedMedicineContext = {
+  brand_name: "Dolo-650",
+  generic_name: "Paracetamol Tablets IP",
+  strength: "650 mg",
+  dosage_form: "Tablet",
+  manufacturer: "Micro Labs Limited",
+  batch_no: "BTH-DOLO-2026A1",
+  mfg_date: "2026-09-01",
+  exp_date: "2028-09-01",
+  active_ingredients: [
+    { name: "Paracetamol IP", strength: "650", unit: "mg", purpose: "Analgesic & Antipyretic" },
+  ],
+  storage_conditions: "Store below 30°C in a dry place. Protect from direct sunlight.",
+  warnings_and_precautions: "Overdose may cause serious liver damage. Avoid alcohol.",
+  side_effects: "Rare allergic skin reactions, nausea.",
+  indications: "Relief of mild to moderate pain and reduction of fever.",
+  is_genuine: true,
+  verification_status: "GENUINE",
+};
+
+describe("General Assistant Engine - Deterministic Pharmaceutical Queries", () => {
+  // A. Valid medicine-name query
+  test("A. Valid medicine-name query", () => {
+    const res = processAssistantQuery({
+      query: "What is the name of this medicine?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "medicine_name");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.strictEqual(res.has_verified_context, true);
+    assert.ok(res.answer.includes("Dolo-650"));
+    assert.ok(res.answer.includes("Paracetamol Tablets IP"));
+  });
+
+  // B. Strength query
+  test("B. Strength query", () => {
+    const res = processAssistantQuery({
+      query: "What is the strength of this drug?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "strength");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("650 mg"));
+    assert.strictEqual(res.data?.strength, "650 mg");
+  });
+
+  // C. Manufacturer query
+  test("C. Manufacturer query", () => {
+    const res = processAssistantQuery({
+      query: "Who manufactured this product?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "manufacturer");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("Micro Labs Limited"));
+    assert.strictEqual(res.data?.manufacturer, "Micro Labs Limited");
+  });
+
+  // D. Batch query
+  test("D. Batch query", () => {
+    const res = processAssistantQuery({
+      query: "What is the batch number?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "batch_number");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("BTH-DOLO-2026A1"));
+    assert.strictEqual(res.data?.batch_no, "BTH-DOLO-2026A1");
+  });
+
+  // E. Expiry query
+  test("E. Expiry query", () => {
+    const res = processAssistantQuery({
+      query: "When does it expire?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "expiry_date");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("2028-09-01"));
+    assert.strictEqual(res.data?.expiry_date, "2028-09-01");
+  });
+
+  // F. Storage query
+  test("F. Storage query", () => {
+    const res = processAssistantQuery({
+      query: "How should I store this medicine?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "storage");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("Store below 30°C"));
+    assert.strictEqual(
+      res.data?.storage_conditions,
+      "Store below 30°C in a dry place. Protect from direct sunlight."
+    );
+  });
+
+  // G. Warning query
+  test("G. Warning query", () => {
+    const res = processAssistantQuery({
+      query: "What are the warnings and precautions?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "warnings");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("Overdose may cause serious liver damage"));
+  });
+
+  // H. Ingredients query
+  test("H. Ingredients query", () => {
+    const res = processAssistantQuery({
+      query: "What are the active ingredients?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "ingredients");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("Paracetamol IP"));
+    assert.ok(res.answer.includes("650 mg"));
+  });
+
+  // I. Dosage-form query
+  test("I. Dosage-form query", () => {
+    const res = processAssistantQuery({
+      query: "What dosage form is this?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "dosage_form");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("Tablet"));
+  });
+
+  // J. Authenticity-status query
+  test("J. Authenticity-status query", () => {
+    const res = processAssistantQuery({
+      query: "Is this medicine authentic and genuine?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "authenticity");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("GENUINE"));
+    assert.strictEqual(res.data?.is_genuine, true);
+  });
+
+  // K. Query with no verified context
+  test("K. Query with no verified context returns controlled unknown response", () => {
+    const res = processAssistantQuery({
+      query: "What is the expiry date?",
+      context: null,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "expiry_date");
+    assert.strictEqual(res.source, "unverified_context");
+    assert.strictEqual(res.has_verified_context, false);
+    assert.strictEqual(
+      res.answer,
+      "I don't have enough verified medicine information to answer that question."
+    );
+  });
+
+  // L. Unsupported/unknown query
+  test("L. Unsupported/unknown query does not hallucinate", () => {
+    const res = processAssistantQuery({
+      query: "What is the stock market price of pharma companies?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "unsupported");
+    assert.strictEqual(res.source, "unverified_context");
+    assert.ok(
+      res.answer.includes("I don't have enough verified medicine information to answer that.")
+    );
+  });
+
+  // M. Personalized dosage request is blocked by safety guardrail
+  test("M. Personalized dosage request is safely blocked", () => {
+    const res = processAssistantQuery({
+      query: "What dosage should I personally take for my fever?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "personalized_dosage");
+    assert.strictEqual(res.source, "safety_guardrail");
+    assert.ok(
+      res.answer.includes("I cannot provide personalized medical diagnosis, prescriptions, or individualized dosage")
+    );
+    assert.ok(res.answer.includes("consult a qualified doctor or licensed healthcare professional"));
+  });
+
+  // N. Malformed request (empty query)
+  test("N. Malformed request with empty query", () => {
+    const res = processAssistantQuery({
+      query: "   ",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.error?.code, "EMPTY_QUERY");
+  });
+});

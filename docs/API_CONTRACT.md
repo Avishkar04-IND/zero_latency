@@ -651,4 +651,64 @@ Provides a tamper-evident audit trail for administrative, production, and securi
     "created_at": "2026-09-11T20:45:00Z"
   }
 ]
+
+---
+
+## 10. Voice & Text Assistant APIs
+
+The General Assistant provides deterministic pharmaceutical information retrieval using
+verified medicine/batch context supplied by the backend verification flow.
+
+### Endpoint: Process Voice / Chat Query
+
+* **Primary Endpoint**: `/api/assistant/query`
+* **Compatibility Alias**: `/api/v1/assistant/query`
+* **HTTP Method**: `POST`
+* **Authentication**: Optional / Public
+
+The assistant must not independently establish medicine authenticity.
+Authenticity and pharmaceutical data originate from the backend verification response.
+
+### Request Schema
+
+```json
+{
+  "query": "What is the expiry date?",
+  "query_text": "What is the expiry date?",
+  "context": {
+    "medicine": {
+      "brand_name": "Dolo-650",
+      "generic_name": "Paracetamol Tablets IP",
+      "strength": "650 mg",
+      "dosage_form": "Tablet",
+      "manufacturer": "Micro Labs Limited",
+      "active_ingredients": [
+        {
+          "name": "Paracetamol IP",
+          "strength": "650",
+          "unit": "mg",
+          "purpose": "Analgesic & Antipyretic"
+        }
+      ],
+      "storage_conditions": "Store below 30°C in a dry place. Protect from moisture and direct light.",
+      "warnings_and_precautions": "Overdose may cause serious liver damage. Avoid alcohol.",
+      "indications": "Relief of mild to moderate pain and fever.",
+      "schedule_type": "OTC"
+    },
+    "batch": {
+      "batch_no": "BTH-DOLO-2026A1",
+      "mfg_date": "2026-09-01",
+      "exp_date": "2028-09-01",
+      "quantity": 10000,
+      "mrp": 50.0
+    },
+    "verification": {
+      "is_genuine": true,
+      "status": "GENUINE",
+      "risk_score": 0
+    }
+  },
+  "session_id": "optional_session_uuid",
+  "language": "en"
+}
 ```
