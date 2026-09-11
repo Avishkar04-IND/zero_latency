@@ -271,7 +271,16 @@ export function BatchSuccessResult({
             </Link>
           </div>
 
-          <Link href="/layout-generation" className="w-full sm:w-auto">
+          <Link href="/layout-generation" className="w-full sm:w-auto" onClick={() => {
+              // Persist batch context for the Layout Generation page (sessionStorage handoff)
+              try {
+                sessionStorage.setItem("zero_latency_layout_medicine", JSON.stringify(medicine));
+                sessionStorage.setItem("zero_latency_layout_batch", JSON.stringify(batch));
+                if (primaryCode) {
+                  sessionStorage.setItem("zero_latency_layout_code", JSON.stringify(primaryCode));
+                }
+              } catch { /* storage unavailable — layout page will show no-context notice */ }
+            }}>
             <Button
               type="button"
               variant="primary"
