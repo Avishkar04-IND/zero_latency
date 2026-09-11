@@ -501,7 +501,9 @@ The primary endpoint called by the **Flutter Mobile App camera scanner**.
 
 ---
 
-## 5. Accessibility & Multilingual Voice Synthesis
+---
+
+## 8. Accessibility & Multilingual Voice Synthesis
 
 ### `GET /accessibility/medicine/{id}/voice?lang=en`
 Generates voice-synthesizer text for Flutter TTS and Android TalkBack.
@@ -537,36 +539,116 @@ Generates voice-synthesizer text for Flutter TTS and Android TalkBack.
 
 ---
 
-## 6. Analytics Dashboard
+## 9. Analytics & Audit Trail
 
 ### `GET /analytics/dashboard`
 Returns live platform KPIs for the Web Admin dashboard.
 
+### `GET /analytics/overview`
+Authoritative summary of total registered medicines, batches, codes, total scans, authenticity percentage, and batch status counts.
+
 * **Response (200 OK):**
 ```json
 {
-  "overview": {
-    "total_medicines": 50,
-    "total_batches": 50,
-    "total_codes_generated": 100,
-    "total_scans": 4,
-    "authenticity_rate": 25.0
-  },
-  "breakdown": {
-    "genuine": 1,
-    "suspicious": 1,
-    "invalid": 1,
-    "expired": 1
-  },
+  "total_medicines": 50,
+  "total_batches": 50,
+  "total_codes_generated": 100,
+  "total_scans": 24,
+  "authenticity_rate": 91.7,
+  "active_batches": 48,
+  "quarantined_batches": 1,
+  "recalled_batches": 0,
+  "expired_batches": 1
+}
+```
+
+### `GET /analytics/risk`
+Calculates platform risk metrics, average risk score, low/medium/high scan classifications, and returns active counterfeit anomaly alerts.
+
+* **Response (200 OK):**
+```json
+{
+  "average_risk_score": 8.5,
+  "low_risk_scans": 22,
+  "medium_risk_scans": 1,
+  "high_risk_scans": 1,
+  "counterfeit_alert_count": 2,
   "recent_alerts": [
     {
-      "id": 4,
-      "serial": "MED-FAKE-9999-0000",
+      "id": 12,
+      "serial": "MED-FAKE-9999",
       "result": "INVALID",
       "risk_score": 100,
-      "device": "Unknown Android Device",
-      "time": "2026-09-11T07:25:00Z"
+      "device": "Flutter Scanner Android 14",
+      "time": "2026-09-11T20:30:00Z",
+      "risk_reasons": ["Unregistered serial number"]
     }
   ]
 }
+```
+
+### `GET /analytics/batches`
+Manufacturing batch inventory metrics including status distribution, total manufactured units, and inventory value at MRP.
+
+* **Response (200 OK):**
+```json
+{
+  "total_batches": 50,
+  "by_status": {
+    "active": 48,
+    "quarantined": 1,
+    "expired": 1
+  },
+  "total_units_manufactured": 2500000,
+  "total_inventory_value_mrp": 125000000.0
+}
+```
+
+### `GET /analytics/codes`
+Code lifecycle KPIs including active, revoked, scanned, and unscanned counts.
+
+* **Response (200 OK):**
+```json
+{
+  "total_codes": 100,
+  "active_codes": 98,
+  "revoked_codes": 2,
+  "scanned_codes": 15,
+  "unscanned_codes": 85,
+  "max_single_code_scans": 3
+}
+```
+
+### `GET /analytics/audit-logs`
+Provides a tamper-evident audit trail for administrative, production, and security actions. Automatically scoped to the authenticated caller's tenant organization.
+
+* **Headers:** `Authorization: Bearer <token>`
+* **Query Parameters:**
+  - `action`: Filter by action (e.g. `LOGIN`, `BATCH_CREATED`, `CODE_GENERATED`, `LAYOUT_REQUESTED`)
+  - `entity_type`: Filter by entity (e.g. `batch`, `medicine`, `user`, `code`)
+  - `user_id`: Filter by actor user ID
+  - `limit`: Pagination limit (default 50)
+  - `offset`: Pagination offset (default 0)
+
+* **Response (200 OK):**
+```json
+[
+  {
+    "id": 101,
+    "user_id": 1,
+    "organization_id": 1,
+    "branch_id": 1,
+    "action": "BATCH_CREATED",
+    "entity_type": "batch",
+    "entity_id": "51",
+    "details": {
+      "batch_no": "BT-2026-151",
+      "medicine_id": 1,
+      "quantity": 50000,
+      "status": "active"
+    },
+    "ip_address": "127.0.0.1",
+    "created_at": "2026-09-11T20:45:00Z"
+  }
+]
 ```
