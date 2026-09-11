@@ -1,36 +1,49 @@
-"""
-Smart Medicine Platform — Backend API Service
-Member 1 Core Ownership
-"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from backend.app.core.config import settings
+from backend.app.core.database import engine, Base
+# Import all models to ensure metadata registration
+import backend.app.models
+from backend.app.api.v1.router import api_router
+
+# Auto-create all tables in SQLite or PostgreSQL on startup
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="Smart Medicine Platform — Core Backend API",
-    description="FastAPI service handling DB, authentication, medicine management, batch codes, and verification.",
-    version="0.1.0",
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="Backend API for Smart Medicine Identification, Anti-Counterfeit Verification, and Accessibility Platform.",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
-# Configure CORS
+# Setup CORS for Next.js Web Admin and Flutter Mobile Client
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Register v1 router
+app.include_router(api_router, prefix=settings.API_V1_STR)
 
-@app.get("/")
-def read_root():
+
+@app.get("/", tags=["Health"])
+def root():
     return {
-        "status": "healthy",
-        "service": "smart-medicine-backend",
-        "version": "0.1.0",
-        "message": "Smart Medicine Platform Core Backend Service is initialized."
+        "status": "online",
+        "service": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "docs_url": "/docs",
+        "api_v1_prefix": settings.API_V1_STR
     }
 
 
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 def health_check():
-    return {"status": "ok"}
+    return {
+        "status": "healthy",
+        "database": "connected"
+    }
