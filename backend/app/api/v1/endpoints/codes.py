@@ -12,6 +12,7 @@ from backend.app.services.code_generator import (
     generate_qr_assets
 )
 from backend.app.api.v1.deps import get_current_user
+from backend.app.services.audit_service import log_audit_event
 
 router = APIRouter(prefix="/codes", tags=["Codes"])
 
@@ -38,13 +39,15 @@ def generate_codes(
     medicine = batch.medicine
     created_codes: List[Code] = []
 
+    prefix = (req.prefix or "MED").strip().upper()
+
     for _ in range(req.count):
-        # Generate non-sequential cryptographic serial
-        serial = generate_serial_number(prefix="MED")
+        # Generate non-sequential cryptographic serial with specified prefix
+        serial = generate_serial_number(prefix=prefix)
         
         # Ensure collision-free uniqueness
         while db.query(Code).filter(Code.serial_number == serial).first():
-            serial = generate_serial_number(prefix="MED")
+            serial = generate_serial_number(prefix=prefix)
 
         # Compute tamper-evident HMAC hash
         c_hash = compute_code_hash(serial)
@@ -80,6 +83,22 @@ def generate_codes(
 
     for c in created_codes:
         db.refresh(c)
+
+    log_audit_event(
+        db=db,
+        action="CODE_GENERATED",
+        user_id=current_user.id if current_user else None,
+        organization_id=medicine.organization_id if medicine else None,
+        branch_id=batch.branch_id,
+        entity_type="batch",
+        entity_id=batch.id,
+        details={
+            "batch_no": batch.batch_no,
+            "count": len(created_codes),
+            "prefix": prefix,
+            "sample_serial": created_codes[0].serial_number if created_codes else None,
+        },
+    )
 
     return CodeGenerateBatchResponse(
         total_generated=len(created_codes),

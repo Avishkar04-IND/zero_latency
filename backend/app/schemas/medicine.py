@@ -41,6 +41,7 @@ class MedicineBase(BaseModel):
     voice_summary_en: Optional[str] = None
     voice_summary_hi: Optional[str] = None
     voice_summary_mr: Optional[str] = None
+    status: Optional[str] = "active"
 
 
 class MedicineCreate(MedicineBase):
@@ -69,6 +70,7 @@ class MedicineUpdate(BaseModel):
     voice_summary_en: Optional[str] = None
     voice_summary_hi: Optional[str] = None
     voice_summary_mr: Optional[str] = None
+    status: Optional[str] = None
 
 
 class MedicineResponse(BaseModel):
@@ -95,6 +97,7 @@ class MedicineResponse(BaseModel):
     voice_summary_en: Optional[str] = None
     voice_summary_hi: Optional[str] = None
     voice_summary_mr: Optional[str] = None
+    status: str = "active"
     created_at: Optional[datetime] = None
 
     @field_validator("active_ingredients", mode="before")
