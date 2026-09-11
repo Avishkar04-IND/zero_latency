@@ -262,3 +262,96 @@ VALUES (
     TRUE
 )
 ON CONFLICT (email) DO NOTHING;
+
+-- Seed Demo Pharma with Paracetamol 500 mg, MD110, and EXP-7903-6B98-2D0A
+INSERT INTO organizations (name, licence_no, contact_email, address)
+VALUES ('Demo Pharma', 'LIC-MH-2026-DEMO', 'contact@demopharma.com', 'Demo Pharma Tech Park, Mumbai')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO branches (organization_id, name, code, address, city, state, contact_email, is_active)
+VALUES (
+    (SELECT id FROM organizations WHERE name = 'Demo Pharma'),
+    'Demo Pharma Main Unit',
+    'BR-DEMO-01',
+    'Demo Pharma Tech Park, Mumbai',
+    'Mumbai',
+    'Maharashtra',
+    'mumbai@demopharma.com',
+    TRUE
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO medicines (organization_id, brand_name, generic_name, category, manufacturer, dosage_form, strength, active_ingredients, inactive_excipients, tablet_shape, tablet_color, score_line, coating_type, indications, dosage_instructions, warnings_and_precautions, storage_conditions, schedule_type, voice_summary_en, voice_summary_hi, voice_summary_mr, status)
+VALUES (
+    (SELECT id FROM organizations WHERE name = 'Demo Pharma'),
+    'Paracetamol 500 mg',
+    'Paracetamol Tablets IP',
+    'Analgesic & Antipyretic',
+    'Demo Pharma',
+    'Tablet',
+    '500 mg',
+    '[{"name": "Paracetamol IP", "strength": "500", "unit": "mg", "purpose": "Active Analgesic"}]',
+    '["Starch", "Microcrystalline Cellulose", "Magnesium Stearate", "Povidone"]',
+    'Round',
+    'White',
+    'Single break-line',
+    'Uncoated',
+    'Relief of mild to moderate pain including headache and reduction of fever.',
+    'Take 1 tablet every 6 to 8 hours with water as directed by physician.',
+    'Do not exceed recommended dose. Avoid consumption with alcohol.',
+    'Store below 30°C in a dry place. Protect from light.',
+    'OTC',
+    'Paracetamol 500 milligram tablet. Contains Paracetamol. For fever and pain relief.',
+    'पैरासिटामोल 500 मिलीग्राम टैबलेट। बुखार और दर्द से राहत के लिए।',
+    'पॅरासिटामॉल 500 मिलिगॅ्रम गोळी. ताप आणि वेदना कमी करण्यासाठी.',
+    'active'
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO batches (medicine_id, branch_id, batch_no, mfg_date, exp_date, quantity, mrp, status)
+VALUES (
+    (SELECT id FROM medicines WHERE brand_name = 'Paracetamol 500 mg' LIMIT 1),
+    (SELECT id FROM branches WHERE code = 'BR-DEMO-01' LIMIT 1),
+    'PCM26A01',
+    '2026-01-15',
+    '2028-09-10',
+    50000,
+    20.0,
+    'active'
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO codes (batch_id, serial_number, code_hash, datamatrix_code, status, scan_count)
+VALUES (
+    (SELECT id FROM batches WHERE batch_no = 'PCM26A01' LIMIT 1),
+    'MD110',
+    '4a2f8b5d3e1a7c9f',
+    '(01)08901234567890(17)280910(10)PCM26A01(21)MD110',
+    'active',
+    0
+)
+ON CONFLICT (serial_number) DO NOTHING;
+
+INSERT INTO batches (medicine_id, branch_id, batch_no, mfg_date, exp_date, quantity, mrp, status)
+VALUES (
+    (SELECT id FROM medicines WHERE brand_name = 'Paracetamol 500 mg' LIMIT 1),
+    (SELECT id FROM branches WHERE code = 'BR-DEMO-01' LIMIT 1),
+    'PCM24EXP',
+    '2022-06-01',
+    '2024-08-12',
+    20000,
+    20.0,
+    'expired'
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO codes (batch_id, serial_number, code_hash, datamatrix_code, status, scan_count)
+VALUES (
+    (SELECT id FROM batches WHERE batch_no = 'PCM24EXP' LIMIT 1),
+    'EXP-7903-6B98-2D0A',
+    '7b3e1a9f4c2d8e5a',
+    '(01)08901234567890(17)240812(10)PCM24EXP(21)EXP-7903-6B98-2D0A',
+    'active',
+    0
+)
+ON CONFLICT (serial_number) DO NOTHING;

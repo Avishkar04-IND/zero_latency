@@ -31,7 +31,8 @@ VALUES
 (1, 'Apex National Pharma', 'LIC-MH-2026-001', 'admin@apexpharma.com', 'Worli Pharma City, Mumbai'),
 (2, 'Cipla Laboratories', 'LIC-MH-2026-002', 'contact@cipla-demo.com', 'Vikhroli, Mumbai'),
 (3, 'GlaxoSmithKline Healthcare', 'LIC-KA-2026-003', 'info@gsk-demo.com', 'Bangalore Tech Park'),
-(4, 'Micro Labs Global', 'LIC-KA-2026-004', 'admin@microlabs-demo.com', 'Race Course Road, Bangalore')
+(4, 'Micro Labs Global', 'LIC-KA-2026-004', 'admin@microlabs-demo.com', 'Race Course Road, Bangalore'),
+(5, 'Demo Pharma', 'LIC-MH-2026-DEMO', 'contact@demopharma.com', 'Demo Pharma Tech Park, Mumbai')
 ON CONFLICT (name) DO NOTHING;""")
 
 out.append("\n-- ==============================================================================")
@@ -42,7 +43,8 @@ VALUES
 (1, 1, 'Main Packaging Unit - Mumbai', 'BR-MUM-01', 'Worli Pharma City, Mumbai', 'Mumbai', 'Maharashtra', 'mumbai.plant@apexpharma.com', TRUE),
 (2, 2, 'Cipla Formulation Lab - Vikhroli', 'BR-VIK-02', 'Vikhroli, Mumbai', 'Mumbai', 'Maharashtra', 'vikhroli@cipla-demo.com', TRUE),
 (3, 3, 'GSK Bangalore Tech Hub', 'BR-BLR-01', 'Bangalore Tech Park', 'Bangalore', 'Karnataka', 'bangalore@gsk-demo.com', TRUE),
-(4, 4, 'Micro Labs Peenya Unit', 'BR-PEE-01', 'Peenya Industrial Area, Bangalore', 'Bangalore', 'Karnataka', 'peenya@microlabs-demo.com', TRUE)
+(4, 4, 'Micro Labs Peenya Unit', 'BR-PEE-01', 'Peenya Industrial Area, Bangalore', 'Bangalore', 'Karnataka', 'peenya@microlabs-demo.com', TRUE),
+(5, 5, 'Demo Pharma Main Unit', 'BR-DEMO-01', 'Demo Pharma Tech Park, Mumbai', 'Mumbai', 'Maharashtra', 'mumbai@demopharma.com', TRUE)
 ON CONFLICT (id) DO NOTHING;""")
 
 out.append("\n-- ==============================================================================")
@@ -111,6 +113,42 @@ ON CONFLICT (id) DO NOTHING;"""
 VALUES ({c_id}, {idx}, {esc(serial)}, {esc(c_hash)}, {esc(assets.get('qr_data_url'))}, {esc(assets.get('qr_svg'))}, {esc(dm)}, 'active', 0)
 ON CONFLICT (id) DO NOTHING;"""
         out.append(code_sql)
+
+# Seed Demo Medicine Paracetamol 500 mg with MD110 and EXP-7903-6B98-2D0A
+demo_med_sql = """INSERT INTO medicines (id, organization_id, brand_name, generic_name, category, manufacturer, dosage_form, strength, active_ingredients, inactive_excipients, tablet_shape, tablet_color, score_line, coating_type, indications, dosage_instructions, warnings_and_precautions, side_effects, storage_conditions, schedule_type, voice_summary_en, voice_summary_hi, voice_summary_mr, status)
+VALUES (51, 5, 'Paracetamol 500 mg', 'Paracetamol Tablets IP', 'Analgesic & Antipyretic', 'Demo Pharma', 'Tablet', '500 mg', '[{"name": "Paracetamol IP", "strength": "500", "unit": "mg", "purpose": "Active Analgesic"}]', '["Starch", "Microcrystalline Cellulose", "Magnesium Stearate", "Povidone"]', 'Round', 'White', 'Single break-line', 'Uncoated', 'Relief of mild to moderate pain including headache and reduction of fever.', 'Take 1 tablet every 6 to 8 hours with water as directed by physician.', 'Do not exceed recommended dose. Avoid consumption with alcohol.', 'Rare: mild nausea, skin rash.', 'Store below 30°C in a dry place. Protect from light.', 'OTC', 'Paracetamol 500 milligram tablet. Contains Paracetamol. For fever and pain relief.', 'पैरासिटामोल 500 मिलीग्राम टैबलेट। बुखार और दर्द से राहत के लिए।', 'पॅरासिटामॉल 500 मिलिगॅ्रम गोळी. ताप आणि वेदना कमी करण्यासाठी.', 'active')
+ON CONFLICT (id) DO NOTHING;"""
+out.append(demo_med_sql)
+
+# Batch PCM26A01 (Exp: 2028-09-10)
+demo_batch1_sql = """INSERT INTO batches (id, medicine_id, branch_id, created_by, batch_no, mfg_date, exp_date, quantity, mrp, status)
+VALUES (51, 51, 5, 1, 'PCM26A01', '2026-01-15', '2028-09-10', 50000, 20.0, 'active')
+ON CONFLICT (id) DO NOTHING;"""
+out.append(demo_batch1_sql)
+
+# Code MD110
+md110_hash = compute_code_hash("MD110")
+md110_dm = format_gs1_datamatrix("8901234567890", date(2028, 9, 10), "PCM26A01", "MD110")
+md110_assets = generate_qr_assets("https://smartmed.org/v/MD110")
+code_md110_sql = f"""INSERT INTO codes (id, batch_id, serial_number, code_hash, qr_data_url, qr_svg, datamatrix_code, status, scan_count)
+VALUES (101, 51, 'MD110', '{md110_hash}', {esc(md110_assets.get('qr_data_url'))}, {esc(md110_assets.get('qr_svg'))}, '{md110_dm}', 'active', 0)
+ON CONFLICT (id) DO NOTHING;"""
+out.append(code_md110_sql)
+
+# Batch PCM24EXP (Exp: 2024-08-12)
+demo_batch2_sql = """INSERT INTO batches (id, medicine_id, branch_id, created_by, batch_no, mfg_date, exp_date, quantity, mrp, status)
+VALUES (52, 51, 5, 1, 'PCM24EXP', '2022-06-01', '2024-08-12', 20000, 20.0, 'expired')
+ON CONFLICT (id) DO NOTHING;"""
+out.append(demo_batch2_sql)
+
+# Code EXP-7903-6B98-2D0A
+exp_hash = compute_code_hash("EXP-7903-6B98-2D0A")
+exp_dm = format_gs1_datamatrix("8901234567890", date(2024, 8, 12), "PCM24EXP", "EXP-7903-6B98-2D0A")
+exp_assets = generate_qr_assets("https://smartmed.org/v/EXP-7903-6B98-2D0A")
+code_exp_sql = f"""INSERT INTO codes (id, batch_id, serial_number, code_hash, qr_data_url, qr_svg, datamatrix_code, status, scan_count)
+VALUES (102, 52, 'EXP-7903-6B98-2D0A', '{exp_hash}', {esc(exp_assets.get('qr_data_url'))}, {esc(exp_assets.get('qr_svg'))}, '{exp_dm}', 'active', 0)
+ON CONFLICT (id) DO NOTHING;"""
+out.append(code_exp_sql)
 
 # Set sequences
 out.append("""

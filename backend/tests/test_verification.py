@@ -101,22 +101,22 @@ def test_shared_contract_verification_verify(client, db_session):
     batch_valid = Batch(
         medicine_id=med.id,
         batch_no="PCM26A01",
-        mfg_date=date.today() - timedelta(days=30),
-        exp_date=date.today() + timedelta(days=365),
+        mfg_date=date(2026, 1, 10),
+        exp_date=date(2028, 9, 10),
         status="active"
     )
     batch_expired = Batch(
         medicine_id=med.id,
         batch_no="PCM24EXP",
-        mfg_date=date.today() - timedelta(days=700),
-        exp_date=date.today() - timedelta(days=30),
+        mfg_date=date(2023, 1, 10),
+        exp_date=date(2024, 8, 12),
         status="active"
     )
     db_session.add_all([batch_valid, batch_expired])
     db_session.flush()
 
     code_md110 = Code(batch_id=batch_valid.id, serial_number="MD110", code_hash="hash1", status="active", scan_count=0)
-    code_exp = Code(batch_id=batch_expired.id, serial_number="EXP101", code_hash="hash2", status="active", scan_count=0)
+    code_exp = Code(batch_id=batch_expired.id, serial_number="EXP-7903-6B98-2D0A", code_hash="hash2", status="active", scan_count=0)
     db_session.add_all([code_md110, code_exp])
     db_session.commit()
 
@@ -131,15 +131,19 @@ def test_shared_contract_verification_verify(client, db_session):
     data1 = res1.json()
     assert data1["is_valid"] is True
     assert data1["verification_status"] == "AUTHENTIC"
+    assert data1["status"] == "GENUINE"
+    assert data1["is_genuine"] is True
+    assert data1["risk_score"] == 0
     assert data1["medicine"]["name"] == "Paracetamol 500 mg"
     assert data1["medicine"]["dosage"] == "500 mg"
     assert data1["medicine"]["manufacturer"] == "Demo Pharma"
     assert data1["batch"]["batch_number"] == "PCM26A01"
+    assert data1["batch"]["expiry_date"] == "2028-09-10"
     assert data1["raw_code"] == "MD110"
 
-    # 2. Test Unknown code
+    # 2. Test Unknown code (UNKNOWN_CODE_999)
     res2 = client.post("/api/v1/verification/verify", json={
-        "code_data": "UNKNOWN_CODE",
+        "code_data": "UNKNOWN_CODE_999",
         "source": "mobile_app"
     })
     assert res2.status_code == 200
@@ -148,9 +152,9 @@ def test_shared_contract_verification_verify(client, db_session):
     assert data2["verification_status"] == "INVALID"
     assert data2["medicine"] is None
 
-    # 3. Test Expired code
+    # 3. Test Expired code (EXP-7903-6B98-2D0A)
     res3 = client.post("/api/v1/verification/verify", json={
-        "code_data": "EXP101",
+        "code_data": "EXP-7903-6B98-2D0A",
         "source": "mobile_app"
     })
     assert res3.status_code == 200
@@ -161,10 +165,13 @@ def test_shared_contract_verification_verify(client, db_session):
     # 4. Test Missing / Empty code_data (400 validation)
     res4 = client.post("/api/v1/verification/verify", json={
         "code_data": "",
+        "latitude": 0.0,
+        "longitude": 0.0,
         "source": "mobile_app"
     })
     assert res4.status_code == 400
     data4 = res4.json()
     assert "error" in data4
     assert data4["error"]["code"] == "INVALID_REQUEST"
-
+    assert data4["error"]["message"] == "code_data is required and cannot be empty"
+    assert data4["error"]["details"] == ["Field 'code_data' must be a non-empty string"]

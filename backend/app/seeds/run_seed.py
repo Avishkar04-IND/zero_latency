@@ -211,6 +211,132 @@ def seed_database():
                     db.flush()
                     seeded_codes_list.append((code_entity, med, batch))
 
+        # 5b. Seed Canonical Project Demo Medicine: Paracetamol 500 mg (MD110 & EXP-7903-6B98-2D0A)
+        print("[DEMO] Seeding canonical project verification demo medicine (MD110)...")
+        demo_org = db.query(Organization).filter(Organization.name == "Demo Pharma").first()
+        if not demo_org:
+            demo_org = Organization(
+                name="Demo Pharma",
+                licence_no="LIC-MH-2026-DEMO",
+                contact_email="contact@demopharma.com",
+                address="Demo Pharma Tech Park, Mumbai"
+            )
+            db.add(demo_org)
+            db.flush()
+
+        demo_branch = db.query(Branch).filter(Branch.name == "Demo Pharma Main Unit").first()
+        if not demo_branch:
+            demo_branch = Branch(
+                organization_id=demo_org.id,
+                name="Demo Pharma Main Unit",
+                code="BR-DEMO-01",
+                address="Demo Pharma Tech Park, Mumbai",
+                city="Mumbai",
+                state="Maharashtra",
+                contact_email="mumbai@demopharma.com",
+                is_active=True
+            )
+            db.add(demo_branch)
+            db.flush()
+
+        demo_med = db.query(Medicine).filter(Medicine.brand_name == "Paracetamol 500 mg").first()
+        if not demo_med:
+            demo_med = Medicine(
+                organization_id=demo_org.id,
+                brand_name="Paracetamol 500 mg",
+                generic_name="Paracetamol Tablets IP",
+                category="Analgesic & Antipyretic",
+                manufacturer="Demo Pharma",
+                dosage_form="Tablet",
+                strength="500 mg",
+                active_ingredients=json.dumps([{"name": "Paracetamol IP", "strength": "500", "unit": "mg", "purpose": "Active Analgesic"}]),
+                inactive_excipients=json.dumps(["Starch", "Microcrystalline Cellulose", "Magnesium Stearate", "Povidone"]),
+                tablet_shape="Round",
+                tablet_color="White",
+                score_line="Single break-line",
+                coating_type="Uncoated",
+                indications="Relief of mild to moderate pain including headache and reduction of fever.",
+                dosage_instructions="Take 1 tablet every 6 to 8 hours with water. Maximum 4 tablets in 24 hours.",
+                warnings_and_precautions="Do not exceed recommended dose. Avoid consumption with alcohol.",
+                side_effects="Rare: mild nausea, skin rash.",
+                storage_conditions="Store below 30°C in a dry place. Protect from light.",
+                schedule_type="OTC",
+                voice_summary_en="Paracetamol 500 milligram tablet. Contains Paracetamol. For fever and pain relief.",
+                voice_summary_hi="पैरासिटामोल 500 मिलीग्राम टैबलेट। बुखार और दर्द से राहत के लिए।",
+                voice_summary_mr="पॅरासिटामॉल 500 मिलिगॅ्रम गोळी. ताप आणि वेदना कमी करण्यासाठी.",
+                status="active"
+            )
+            db.add(demo_med)
+            db.flush()
+
+        # Demo Batch 1: Authentic batch PCM26A01 (Exp: 2028-09-10)
+        batch_pcm26 = db.query(Batch).filter(Batch.batch_no == "PCM26A01").first()
+        if not batch_pcm26:
+            batch_pcm26 = Batch(
+                medicine_id=demo_med.id,
+                branch_id=demo_branch.id,
+                created_by=admin.id if admin else None,
+                batch_no="PCM26A01",
+                mfg_date=date(2026, 1, 15),
+                exp_date=date(2028, 9, 10),
+                quantity=50000,
+                mrp=20.0,
+                status="active"
+            )
+            db.add(batch_pcm26)
+            db.flush()
+
+        # Code MD110
+        code_md110 = db.query(Code).filter(Code.serial_number == "MD110").first()
+        if not code_md110:
+            md110_assets = generate_qr_assets("https://smartmed.org/v/MD110")
+            code_md110 = Code(
+                batch_id=batch_pcm26.id,
+                serial_number="MD110",
+                code_hash=compute_code_hash("MD110"),
+                qr_data_url=md110_assets.get("qr_data_url"),
+                qr_svg=md110_assets.get("qr_svg"),
+                datamatrix_code=format_gs1_datamatrix("8901234567890", date(2028, 9, 10), "PCM26A01", "MD110"),
+                status="active",
+                scan_count=0
+            )
+            db.add(code_md110)
+            db.flush()
+
+        # Demo Batch 2: Expired batch PCM24EXP (Exp: 2024-08-12)
+        batch_pcm24exp = db.query(Batch).filter(Batch.batch_no == "PCM24EXP").first()
+        if not batch_pcm24exp:
+            batch_pcm24exp = Batch(
+                medicine_id=demo_med.id,
+                branch_id=demo_branch.id,
+                created_by=admin.id if admin else None,
+                batch_no="PCM24EXP",
+                mfg_date=date(2022, 6, 1),
+                exp_date=date(2024, 8, 12),
+                quantity=20000,
+                mrp=20.0,
+                status="expired"
+            )
+            db.add(batch_pcm24exp)
+            db.flush()
+
+        # Code EXP-7903-6B98-2D0A
+        code_exp_target = db.query(Code).filter(Code.serial_number == "EXP-7903-6B98-2D0A").first()
+        if not code_exp_target:
+            exp_assets = generate_qr_assets("https://smartmed.org/v/EXP-7903-6B98-2D0A")
+            code_exp_target = Code(
+                batch_id=batch_pcm24exp.id,
+                serial_number="EXP-7903-6B98-2D0A",
+                code_hash=compute_code_hash("EXP-7903-6B98-2D0A"),
+                qr_data_url=exp_assets.get("qr_data_url"),
+                qr_svg=exp_assets.get("qr_svg"),
+                datamatrix_code=format_gs1_datamatrix("8901234567890", date(2024, 8, 12), "PCM24EXP", "EXP-7903-6B98-2D0A"),
+                status="active",
+                scan_count=0
+            )
+            db.add(code_exp_target)
+            db.flush()
+
         # 6. Seed Realistic Scan Events & Suspicious Scan for Analytics Demo
         print("[SCANS] Seeding realistic scan audit logs and security scenarios...")
         if seeded_codes_list and db.query(Scan).count() == 0:
