@@ -20,16 +20,28 @@ export function normalizeContext(
   const batch = context.batch || {};
   const verif = context.verification || {};
 
-  const brand_name = context.brand_name || med.brand_name || null;
+  const brand_name =
+    context.brand_name || context.name || med.brand_name || med.name || null;
   const generic_name = context.generic_name || med.generic_name || null;
-  const strength = context.strength || med.strength || null;
+  const strength =
+    context.strength || context.dosage || med.strength || med.dosage || null;
   const dosage_form = context.dosage_form || med.dosage_form || null;
   const manufacturer = context.manufacturer || med.manufacturer || null;
   const category = med.category || null;
 
-  const batch_no = context.batch_no || batch.batch_no || null;
+  const batch_no =
+    context.batch_no ||
+    context.batch_number ||
+    batch.batch_no ||
+    batch.batch_number ||
+    null;
   const mfg_date = context.mfg_date || batch.mfg_date || null;
-  const exp_date = context.exp_date || batch.exp_date || null;
+  const exp_date =
+    context.exp_date ||
+    context.expiry_date ||
+    batch.exp_date ||
+    batch.expiry_date ||
+    null;
   const quantity = batch.quantity || null;
   const mrp = batch.mrp || null;
 
@@ -38,9 +50,17 @@ export function normalizeContext(
   const inactive_excipients = med.inactive_excipients || null;
   const indications = context.indications || med.indications || null;
   const warnings_and_precautions =
-    context.warnings_and_precautions || med.warnings_and_precautions || null;
+    context.warnings_and_precautions ||
+    context.warnings ||
+    med.warnings_and_precautions ||
+    med.warnings ||
+    null;
   const storage_conditions =
-    context.storage_conditions || med.storage_conditions || null;
+    context.storage_conditions ||
+    context.storage_instructions ||
+    med.storage_conditions ||
+    med.storage_instructions ||
+    null;
   const schedule_type = med.schedule_type || null;
   const side_effects = med.side_effects || null;
   const dosage_instructions = med.dosage_instructions || null;
@@ -54,6 +74,7 @@ export function normalizeContext(
 
   const verification_status =
     context.verification_status ||
+    verif.verification_status ||
     context.status ||
     verif.status ||
     (is_genuine === true ? "GENUINE" : is_genuine === false ? "INVALID" : null);
@@ -103,8 +124,9 @@ export function isUnsafeMedicalQuery(query: string): boolean {
   const q = query.toLowerCase().trim();
 
   const unsafePatterns = [
-    /how many (tablets?|pills?|capsules?|drops?|spoons?) (should|can|do) i (take|eat|swallow|consume)/i,
-    /how (much|many) should i take (personally|for my|daily)/i,
+    /how many (tablets?|pills?|capsules?|drops?|spoons?)(\s+of\s+this)?\s+(should|can|do)\s+i\s+(take|eat|swallow|consume)/i,
+    /how\s+(much|many)(\s+.*)?\s+(should|can|do)\s+i\s+(take|eat|swallow|consume|use)/i,
+    /how (much|many) should i take/i,
     /can i take (\d+|two|three|four|five) (tablets?|pills?|capsules?)/i,
     /what dosage should i (personally )?take/i,
     /what dose should i take/i,
@@ -116,7 +138,7 @@ export function isUnsafeMedicalQuery(query: string): boolean {
     /can i double (the )?(dose|dosage)/i,
     /can i take this with alcohol/i,
     /is it okay for me to take (\d+)/i,
-    /how often should i take this for my (headache|fever|pain|stomach)/i,
+    /how often should i take this/i,
   ];
 
   return unsafePatterns.some((pattern) => pattern.test(q));
@@ -519,11 +541,16 @@ export function processAssistantQuery(
       return notEnoughInfo("authenticity", "verification_status");
     }
 
-    const isGenuine = medData.is_genuine ?? medData.verification_status === "GENUINE";
-    const statusText = medData.verification_status || (isGenuine ? "GENUINE" : "SUSPECTED");
+    const isGenuine =
+      medData.is_genuine !== null && medData.is_genuine !== undefined
+        ? medData.is_genuine
+        : medData.verification_status === "GENUINE" ||
+          medData.verification_status === "AUTHENTIC";
+    const statusText =
+      medData.verification_status || (isGenuine ? "GENUINE" : "SUSPECTED");
 
     const answer = isGenuine
-      ? `This medicine is verified as GENUINE and authenticated in the CDSCO-compliant manufacturer registry.`
+      ? `This medicine is verified as GENUINE by the Zero Latency verification backend.`
       : `Verification notice: Status is ${statusText}. Exercise caution and verify packaging authenticity with the supplier.`;
 
     return {

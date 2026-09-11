@@ -42,28 +42,49 @@ export interface NormalizedMedicineData {
   verification_status?: string | null;
 }
 
+export interface NestedMedicineContext extends Partial<MedicineResponse> {
+  name?: string;
+  dosage?: string;
+  storage_instructions?: string;
+  warnings?: string;
+}
+
+export interface NestedBatchContext extends Partial<BatchResponse> {
+  batch_number?: string;
+  expiry_date?: string;
+}
+
+export interface NestedVerificationContext {
+  status?: string;
+  verification_status?: string;
+  is_genuine?: boolean;
+  risk_score?: number;
+  scanned_serial?: string;
+  verified_at?: string;
+}
+
 export interface VerifiedMedicineContext {
-  medicine?: Partial<MedicineResponse> | null;
-  batch?: Partial<BatchResponse> | null;
-  verification?: {
-    status?: string;
-    is_genuine?: boolean;
-    risk_score?: number;
-    scanned_serial?: string;
-    verified_at?: string;
-  } | null;
+  medicine?: NestedMedicineContext | null;
+  batch?: NestedBatchContext | null;
+  verification?: NestedVerificationContext | null;
   // Support direct flat fields for client convenience
   brand_name?: string;
+  name?: string;
   generic_name?: string;
   strength?: string;
+  dosage?: string;
   dosage_form?: string;
   manufacturer?: string;
   batch_no?: string;
+  batch_number?: string;
   mfg_date?: string;
   exp_date?: string;
+  expiry_date?: string;
   active_ingredients?: ActiveIngredient[] | string[];
   storage_conditions?: string;
+  storage_instructions?: string;
   warnings_and_precautions?: string;
+  warnings?: string;
   indications?: string;
   side_effects?: string;
   is_genuine?: boolean;
