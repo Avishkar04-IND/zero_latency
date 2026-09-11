@@ -32,6 +32,7 @@ def render_layout_to_svg(layout: LayoutPlan) -> str:
         '    .tablet-cavity { fill: #e2e8f0; stroke: #64748b; stroke-width: 0.3; }',
         '    .layout-code { fill: #f1f5f9; stroke: #0284c7; stroke-width: 0.3; }',
         '    .code-reserved-datamatrix { fill: #eff6ff; stroke: #2563eb; stroke-width: 0.35; stroke-dasharray: 1.5, 1; }',
+        '    .code-reserved-qr { fill: #eff6ff; stroke: #2563eb; stroke-width: 0.35; stroke-dasharray: 1.5, 1; }',
         '    .code-reserved-barcode { fill: #eff6ff; stroke: #2563eb; stroke-width: 0.35; stroke-dasharray: 2, 1; }',
         '    .layout-rect { fill: none; stroke: #cbd5e1; stroke-width: 0.2; }',
         '    .layout-text { font-family: sans-serif; fill: #0f172a; dominant-baseline: hanging; }',
@@ -75,6 +76,16 @@ def render_layout_to_svg(layout: LayoutPlan) -> str:
                 svg_lines.append(
                     f'  <g id="{elem.id}" class="layout-code-group code-datamatrix"{transform}>'
                     f'    <rect class="layout-code code-reserved-datamatrix" x="{elem.x_mm}" y="{elem.y_mm}" '
+                    f'width="{elem.width_mm}" height="{elem.height_mm}" rx="0.5" ry="0.5" />'
+                    f'    <text class="layout-code-reserved-text" x="{cx}" y="{cy}" '
+                    f'text-anchor="middle" dominant-baseline="central">{label}</text>'
+                    f'  </g>'
+                )
+            elif "qr" in code_type_lower or "qr" in content_lower:
+                label = f"[QR Code: {escaped_content}]" if escaped_content else "[QR Code Area]"
+                svg_lines.append(
+                    f'  <g id="{elem.id}" class="layout-code-group code-qr"{transform}>'
+                    f'    <rect class="layout-code code-reserved-qr" x="{elem.x_mm}" y="{elem.y_mm}" '
                     f'width="{elem.width_mm}" height="{elem.height_mm}" rx="0.5" ry="0.5" />'
                     f'    <text class="layout-code-reserved-text" x="{cx}" y="{cy}" '
                     f'text-anchor="middle" dominant-baseline="central">{label}</text>'

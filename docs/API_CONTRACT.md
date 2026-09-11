@@ -206,69 +206,103 @@
 
 ---
 
-## 7. Layout Recommendation APIs
+## 7. Layout Optimization & Recommendation APIs
 
-### Endpoint: Recommend & Optimize Package Layout
-* **Endpoint**: `/api/layouts/recommend`
+> **ARCHITECTURAL SCOPE & BOUNDARIES**:
+> - The Layout Engine (`/layout-engine/`, port `8001`) operates **purely in-memory** and **does NOT connect to PostgreSQL**.
+> - The Layout Engine does **NOT verify pharmaceutical authenticity or cryptographic signatures**. Verification is exclusively handled by `/api/v1/verification/verify`.
+> - For identical packaging inputs, the Layout Engine produces deterministic, collision-free placements.
+
+### Endpoint: Optimize Package Layout (Primary Integration Route)
+* **Endpoint**: `/api/v1/layout/optimize`
 * **HTTP Method**: `POST`
 * **Authentication**: Internal Service API Key / Bearer Token
-* **Request**:
+* **Description**: Accepts either standard `LayoutRequest` or structured backend print data (incorporating `medicine`, `batch`, and `code`/`codes` from `/api/v1/medicines`, `/api/v1/batches`, and `/api/v1/codes/generate`).
+* **Field Mappings**:
+  - `dosage` → `strength`
+  - `batch_number` → `batch`
+  - `manufacturing_date` → `mfg`
+  - `expiry_date` → `exp`
+  - `serial_number` → human-readable serial text (`id="serial_no"`, formatted `"SN: <serial_number>"`)
+  - Authoritative values are preserved; aliases never overwrite existing fields.
+* **Code Support**:
+  - Symbologies: `QR` (`qr`, `qrcode`), `DATAMATRIX` (`datamatrix`), `BARCODE`, `HUMAN_READABLE` (case-insensitive).
+  - Square Sizing: When only `min_size_mm` / `minimum_code_size_mm` is provided for QR/DataMatrix, width and height default to square (`min_size` $\times$ `min_size`).
+  - Dual Codes: Supports concurrent placement of a scannable 2D code (`batch_code`) and human-readable serial text (`serial_no`).
+* **Structured Backend Request Example**:
   ```json
   {
     "package": {
-      "package_width_mm": 130.0,
-      "package_height_mm": 65.0,
-      "printing_area_width_mm": 110.0,
-      "printing_area_height_mm": 55.0,
-      "printing_area_x_mm": 10.0,
+      "package_width_mm": 120.0,
+      "package_height_mm": 60.0,
+      "printing_area_width_mm": 105.0,
+      "printing_area_height_mm": 50.0,
+      "printing_area_x_mm": 7.5,
       "printing_area_y_mm": 5.0
     },
     "tablet": {
       "tablet_count": 6,
       "tablet_diameter_mm": 9.0
     },
+    "medicine": {
+      "name": "Amoxicillin and Potassium Clavulanate",
+      "dosage": "625 mg",
+      "manufacturer": "HealthGuard Pharma"
+    },
+    "batch": {
+      "batch_number": "BN-2026-9901",
+      "manufacturing_date": "2026-03-01",
+      "expiry_date": "2028-03-01"
+    },
     "code": {
-      "value": "MED001-DM",
-      "code_type": "datamatrix",
-      "min_size_mm": 12.0
+      "type": "QR",
+      "value": "https://rx.zero-latency.org/v/BN20269901",
+      "min_size_mm": 12.0,
+      "serial_number": "SN-9901-7788"
     },
-    "information": {
-      "medicine_name": "Amoxicillin",
-      "strength": "500 mg",
-      "batch": "B2026-X",
-      "mfg": "2026-03",
-      "exp": "2028-03"
-    },
-    "constraints": {
-      "minimum_margin_mm": 2.0,
-      "minimum_element_spacing_mm": 1.5
-    },
-    "optimization_target": "RECOMMEND|COST|BALANCED|ACCESSIBILITY"
+    "optimization_target": "RECOMMEND"
   }
   ```
 * **Response**:
   ```json
   {
-    "id": "layout_recommendation_balanced_001",
+    "id": "layout_recommendation_accessibility_001",
     "success": true,
-    "recommended_strategy": "BALANCED",
-    "score": 83.42,
-    "space_utilization": 0.582,
-    "readability": 0.880,
-    "print_efficiency": 0.850,
-    "scan_reliability": 0.940,
-    "cost_efficiency": 0.582,
+    "recommended_strategy": "ACCESSIBILITY",
+    "score": 82.15,
+    "space_utilization": 0.54,
+    "readability": 0.94,
+    "print_efficiency": 0.81,
+    "scan_reliability": 0.96,
+    "cost_efficiency": 0.54,
     "package": { "..." : "..." },
-    "elements": [],
+    "elements": [
+      { "id": "cavity_1", "type": "tablet_cavity", "x_mm": 77.0, "y_mm": 20.0, "width_mm": 9.0, "height_mm": 9.0 },
+      { "id": "med_name", "type": "text", "content": "Amoxicillin and Potassium Clavulanate", "x_mm": 8.5, "y_mm": 6.0, "width_mm": 85.1, "height_mm": 4.8 },
+      { "id": "med_strength", "type": "text", "content": "625 mg", "x_mm": 8.5, "y_mm": 12.8, "width_mm": 16.0, "height_mm": 4.2 },
+      { "id": "batch_no", "type": "text", "content": "B.No: BN-2026-9901", "x_mm": 8.5, "y_mm": 19.0, "width_mm": 32.4, "height_mm": 3.2 },
+      { "id": "mfg_date", "type": "text", "content": "MFG: 2026-03-01", "x_mm": 26.5, "y_mm": 12.8, "width_mm": 27.0, "height_mm": 3.0 },
+      { "id": "exp_date", "type": "text", "content": "EXP: 2028-03-01", "x_mm": 8.5, "y_mm": 24.2, "width_mm": 27.0, "height_mm": 3.0 },
+      { "id": "batch_code", "type": "code", "content": "https://rx.zero-latency.org/v/BN20269901", "code_type": "qr", "x_mm": 95.6, "y_mm": 6.0, "width_mm": 12.0, "height_mm": 12.0 },
+      { "id": "serial_no", "type": "text", "content": "SN: SN-9901-7788", "x_mm": 42.9, "y_mm": 19.0, "width_mm": 28.8, "height_mm": 3.0 },
+      { "id": "manufacturer", "type": "text", "content": "Mfd: HealthGuard Pharma", "x_mm": 55.5, "y_mm": 12.8, "width_mm": 36.8, "height_mm": 3.0 }
+    ],
     "alternatives": [
-      { "strategy": "BALANCED", "score": 83.42 },
-      { "strategy": "COST", "score": 81.15 },
-      { "strategy": "ACCESSIBILITY", "score": 79.80 }
+      { "strategy": "ACCESSIBILITY", "score": 82.15 },
+      { "strategy": "BALANCED", "score": 81.88 },
+      { "strategy": "COST", "score": 80.45 }
     ],
     "validation": { "valid": true, "errors": [], "warnings": [] }
   }
   ```
 * **Error Responses**: `422 Unprocessable Entity` (Validation), `200 OK with success: false` (Placement failure)
+
+### Endpoint: Recommend Package Layout (Retained Compatibility Route)
+* **Endpoint**: `/api/layouts/recommend`
+* **HTTP Method**: `POST`
+* **Authentication**: Internal Service API Key / Bearer Token
+* **Request**: Standard `LayoutRequest` object with `package`, `tablet`, `code`, `information`, `constraints`.
+* **Response**: Same `LayoutPlan` structure as `/api/v1/layout/optimize`.
 
 ---
 

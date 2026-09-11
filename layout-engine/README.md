@@ -1,13 +1,18 @@
 # Pharmaceutical Layout Engine — Smart Medicine Platform
 
 **Module Ownership**: Member 3 (`/layout-engine/`)  
-**Current Status**: Production-Ready | **201 Tests Passing** (0 Failures)  
+**Current Status**: Production-Ready | **242 Tests Passing** (0 Failures)  
 
 ---
 
-## 1. Purpose of the Layout Engine
+## 1. Purpose & Architectural Scope
 
-The Layout Engine is a deterministic, standalone microservice that computes collision-free physical placements for pharmaceutical packaging (blister packs and folding cartons). It arranges tablet cavities, batch-linked serialization codes (DataMatrix, Barcode, Human-Readable), and regulatory medicine information while enforcing physical boundary and margin constraints.
+The Layout Engine is a deterministic, standalone microservice that computes collision-free physical placements for pharmaceutical packaging (blister packs and folding cartons). It arranges tablet cavities, batch-linked serialization codes (QR, DataMatrix, Barcode, Human-Readable), and regulatory medicine information while enforcing physical boundary and margin constraints.
+
+> **IMPORTANT ARCHITECTURAL BOUNDARY**:
+> - The Layout Engine operates **purely in-memory** and **does NOT access the PostgreSQL database**.
+> - The Layout Engine does **NOT verify pharmaceutical authenticity or cryptographic signatures**; verification is exclusively performed by the Backend Core (`/backend/`).
+> - The Layout Engine accepts structured packaging data and outputs mathematical coordinates, vector SVG previews, and ISO 32000 compliant PDF documents.
 
 ---
 
@@ -16,14 +21,23 @@ The Layout Engine is a deterministic, standalone microservice that computes coll
 ```text
 ┌────────────────────────────────────────────────────────┐
 │                      Input Request                     │
-│  Package dimensions, Cavity configs, Code details,     │
-│  Medicine text, Constraints, Optimization target       │
+│  Standard LayoutRequest OR Structured Print Data       │
+│  (Package dimensions, Cavity configs, QR/DataMatrix,   │
+│   Backend medicine/batch objects, Print constraints)   │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│            Structured Print Data Adapter               │
+│  Maps: dosage -> strength, batch_number -> batch,      │
+│  mfg_date -> mfg, exp_date -> exp, serial_number -> SN │
+│  Normalizes code types (QR, DataMatrix, Barcode)       │
 └───────────────────────────┬────────────────────────────┘
                             │
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │                  Layout Engine Pipeline                │
-│  1. Pydantic validation & physical boundary checks    │
+│  1. Pydantic validation & physical boundary checks     │
 │  2. Deterministic spatial placement algorithms         │
 │  3. Optimization evaluation (Cost / Balanced / Access) │
 │  4. Common score normalization & tie-breaking          │
@@ -37,7 +51,37 @@ The Layout Engine is a deterministic, standalone microservice that computes coll
 
 ---
 
-## 3. Supported Optimization Targets
+## 3. Key Integration Capabilities (Task 19)
+
+### 1. QR Code Support & Normalization
+- Full support for `CodeType.QR` (`"qr"`).
+- Case-insensitive normalization for code types and aliases:
+  - `qr`, `QR`, `qrcode`, `QRCode`, `QRCODE`, `qr-code`, `qr_code` → `CodeType.QR`
+  - `datamatrix`, `DATAMATRIX`, `DataMatrix`, `data-matrix` → `CodeType.DATAMATRIX`
+  - `barcode`, `BARCODE`, `BarCode`, `bar-code` → `CodeType.BARCODE`
+  - `human-readable`, `HUMAN-READABLE`, `humanreadable` → `CodeType.HUMAN_READABLE`
+- Accepted aliases: `type` for `code_type`, `value` for `code_value`, `min_size_mm` for `minimum_code_size_mm`.
+
+### 2. QR and DataMatrix Square Sizing
+- When only `minimum_code_size_mm` (or `min_size_mm`) is provided for 2D matrix symbologies (QR, DataMatrix), dimensions automatically default to square (`min_size` $\times$ `min_size` mm).
+- Explicit rectangular dimensions (`code_width_mm`, `code_height_mm`) are respected when explicitly provided.
+- When minimum size is omitted, existing default behavior is preserved (DataMatrix defaults to $20.0 \times 6.0$ mm).
+
+### 3. Backend Pharmaceutical Field Mapping
+The engine maps structured backend print-data without modifying or overwriting authoritative values:
+- `dosage` → `strength`
+- `batch_number` → `batch`
+- `manufacturing_date` → `mfg`
+- `expiry_date` → `exp`
+- `serial_number` → human-readable serial text element (`id="serial_no"`)
+
+### 4. Dual Code Placement
+- Coexistence of a scannable 2D code (`batch_code`, `ElementType.CODE`) and human-readable serial text (`serial_no`, `ElementType.TEXT`, prefixed with `"SN: "`).
+- Both elements are placed collision-free using the existing deterministic placement engine and validated against package boundaries and margins.
+
+---
+
+## 4. Supported Optimization Targets
 
 | Target | Description | Objective Priority |
 | :--- | :--- | :--- |
@@ -48,20 +92,25 @@ The Layout Engine is a deterministic, standalone microservice that computes coll
 
 ---
 
-## 4. API Endpoints
+## 5. API Endpoints
 
-### 1. `POST /api/layouts/recommend`
-- **Purpose**: Generates and evaluates the physical layout according to the requested optimization strategy.
+### 1. `POST /api/v1/layout/optimize` (Primary Integration Endpoint)
+- **Purpose**: Primary integration route for Web and Backend services. Accepts either standard `LayoutRequest` or backend-style structured print data (with `medicine`, `batch`, `code`, or `codes` list).
 - **Content-Type**: `application/json`
-- **Success (200)**: Returns `LayoutPlan` with `recommended_strategy`, `score`, metrics, `elements` list with physical coordinates, and `alternatives` array.
+- **Success (200)**: Returns `LayoutPlan` with `recommended_strategy`, overall score, sub-scores, placed physical elements (`tablet_cavity`, `text`, `code`), and alternative candidate evaluations.
 - **Validation Failure (422)**: Returns structured error schema (`VALIDATION_ERROR`).
 
-### 2. `POST /api/layouts/preview`
+### 2. `POST /api/layouts/recommend` (Retained Compatibility Route)
+- **Purpose**: Generates and evaluates the physical layout using standard `LayoutRequest`.
+- **Content-Type**: `application/json`
+- **Success (200)**: Returns `LayoutPlan`.
+
+### 3. `POST /api/layouts/preview` (Retained Compatibility Route)
 - **Purpose**: Generates standalone vector SVG markup representing the layout.
 - **Content-Type**: `application/json`
 - **Success (200)**: Returns `{"success": true, "layout_id": "...", "svg": "<svg...", "validation": {...}}`.
 
-### 3. `POST /api/layouts/pdf`
+### 4. `POST /api/layouts/pdf` (Retained Compatibility Route)
 - **Purpose**: Exports the physical layout to an ISO 32000 compliant PDF document.
 - **Content-Type**: `application/pdf`
 - **Success (200)**: Binary PDF stream with `Content-Disposition: inline; filename="{layout_id}.pdf"`.
@@ -69,7 +118,7 @@ The Layout Engine is a deterministic, standalone microservice that computes coll
 
 ---
 
-## 5. Physical Units & Dimensions
+## 6. Physical Units & Dimensions
 
 - **Primary Unit**: Millimeters (`mm`) across all inputs, coordinates, and models.
 - **Angles**: Degrees (`0.0`, `90.0`, `180.0`, `270.0`).
@@ -79,49 +128,40 @@ The Layout Engine is a deterministic, standalone microservice that computes coll
 
 ---
 
-## 6. SVG / PDF Rendering
+## 7. SVG / PDF Rendering
 
 - **Package Boundary**: Drawn to exact outer physical dimensions (`package_width_mm` $\times$ `package_height_mm`).
 - **Printable Area**: Visualized with dashed boundary lines according to offset and dimensions.
 - **Tablet Cavities**: Rendered accurately by geometry shape (Bézier circles for round cavities, rounded rectangles for oblong/capsule cavities).
-- **Code Reservation**: Renders reserved physical zones and type labels for DataMatrix and Barcode without generating fake 2D matrix or barcode symbology.
+- **Code Reservation**: Renders reserved physical zones and type labels for QR (`.code-reserved-qr`), DataMatrix (`.code-reserved-datamatrix`), and Barcode (`.code-reserved-barcode`).
 - **Medicine Information**: Rendered with proportional font sizes, selectable text, and visual hierarchy.
 
 ---
 
-## 7. How to Run the Service
+## 8. How to Run the Service
 
 ```bash
 # From within the /layout-engine/ directory:
-py -3.14 -m uvicorn app.main:app --port 8000 --reload
+py -3.14 -m uvicorn app.main:app --port 8001 --reload
 ```
-Interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
+Interactive OpenAPI documentation is available at `http://localhost:8001/docs`.
 
 ---
 
-## 8. How to Run Tests
+## 9. How to Run Tests
 
 ```bash
-# Run complete test suite (201 tests):
+# Run complete test suite (242 tests):
 py -3.14 -m pytest -v
 
-# Run specific test modules:
-py -3.14 -m pytest -v tests/test_api_integration.py
-py -3.14 -m pytest -v tests/test_production_hardening.py
+# Run Task 19 integration tests:
+py -3.14 -m pytest -v tests/test_task19_integration.py
 ```
-
----
-
-## 9. Expected Integration Contract for the Team
-
-- **Backend Integration**: Backend calls `POST /api/layouts/recommend` using internal service requests to retrieve layout coordinates, scores, and alternative plans for persistence.
-- **Web Assistant Integration**: Web UI displays the vector SVG from `POST /api/layouts/preview` or embeds PDF previews directly via `POST /api/layouts/pdf`.
-- **Error Response Schema**: All endpoints return sanitized, structured JSON error envelopes (`code`, `message`, `details`) on error status codes (`400`, `404`, `422`), with zero internal stack trace exposure.
 
 ---
 
 ## 10. Current Status
 
 - **Engine Status**: Production-Ready
-- **Test Suite**: **201 / 201 Tests Passing**
-- **Git Branch**: `member3/layout-engine` (aligned, verified, and ready for PR merge into `integration`)
+- **Test Suite**: **242 / 242 Tests Passing** (0 Failures)
+- **Git Branch**: `member3/layout-engine`

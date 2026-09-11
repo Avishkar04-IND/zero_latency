@@ -175,6 +175,22 @@ def render_layout_to_pdf(layout: LayoutPlan) -> bytes:
                 commands.append("0.11 0.31 0.85 rg")  # Text color
                 commands.append(f"BT /F2 {font_size_pt:.2f} Tf {tx:.2f} {ty:.2f} Td ({label_escaped}) Tj ET")
 
+            elif "qr" in code_type_lower or "qr" in content_lower:
+                # Reserved QR Code area
+                commands.append("0.94 0.96 1.0 rg")  # Very light blue fill
+                commands.append("0.15 0.39 0.92 RG")  # Blue border
+                commands.append("[2 1] 0 d")  # Dashed pattern
+                commands.append("0.5 w")
+                commands.append(f"{elem_x_pt:.3f} {elem_y_pt:.3f} {elem_w_pt:.3f} {elem_h_pt:.3f} re B")
+                label = f"[QR Code: {content}]" if content else "[QR Code Area]"
+                label_escaped = _escape_pdf_string(label)
+                font_size_pt = max(4.5, min(elem_h_pt * 0.35, 7.0))
+                approx_text_width = len(label) * font_size_pt * 0.48
+                tx = max(elem_x_pt + 1.0, cx_pt - approx_text_width / 2.0)
+                ty = cy_pt - font_size_pt * 0.35
+                commands.append("0.11 0.31 0.85 rg")
+                commands.append(f"BT /F2 {font_size_pt:.2f} Tf {tx:.2f} {ty:.2f} Td ({label_escaped}) Tj ET")
+
             elif "barcode" in code_type_lower or "barcode" in content_lower:
                 # Reserved Barcode area
                 commands.append("0.94 0.96 1.0 rg")

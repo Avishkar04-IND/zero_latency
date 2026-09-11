@@ -8,12 +8,14 @@ from app.models.layout_models import (
     LayoutPlan,
     LayoutPreviewRequest,
     LayoutRequest,
+    parse_print_data_to_layout_request,
 )
 from app.optimizer.optimizer import validate_layout
 from app.rendering.pdf_renderer import render_layout_to_pdf
 from app.rendering.svg_renderer import render_layout_to_svg
 
 router = APIRouter(prefix="/api/layouts", tags=["layouts"])
+v1_router = APIRouter(prefix="/api/v1/layout", tags=["layout-v1"])
 
 
 def build_baseline_layout(request: LayoutRequest) -> LayoutPlan:
@@ -91,6 +93,35 @@ def build_baseline_layout(request: LayoutRequest) -> LayoutPlan:
 def recommend_layout(request: LayoutRequest) -> LayoutPlan:
     """Accepts structured layout input and returns a valid deterministic physical layout."""
     return generate_layout(request)
+
+
+@v1_router.post(
+    "/optimize",
+    response_model=LayoutPlan,
+    summary="Optimize packaging layout (v1 Integration API)",
+    description="Accepts standard LayoutRequest or structured backend print data and returns an optimized deterministic layout plan.",
+)
+def optimize_layout_v1(request: Dict[str, Any]) -> LayoutPlan:
+    """Adapts structured backend print data or standard layout requests to produce an optimized layout plan."""
+    try:
+        layout_request = parse_print_data_to_layout_request(request)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid layout input or print data structure: {str(e)}",
+        )
+    return generate_layout(layout_request)
+
+
+@router.post(
+    "/optimize",
+    response_model=LayoutPlan,
+    summary="Optimize packaging layout",
+    description="Accepts standard LayoutRequest or structured backend print data and returns an optimized deterministic layout plan.",
+)
+def optimize_layout(request: Dict[str, Any]) -> LayoutPlan:
+    """Alias for optimize_layout_v1 on /api/layouts/optimize."""
+    return optimize_layout_v1(request)
 
 
 @router.post(

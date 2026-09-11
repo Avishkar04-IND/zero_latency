@@ -7,6 +7,7 @@ from app.geometry.geometry import (
     compute_bounding_box,
 )
 from app.models.layout_models import (
+    CodeType,
     ElementType,
     LayoutAlternative,
     LayoutElement,
@@ -439,10 +440,40 @@ def _generate_candidate(
             f_size = max(request.constraints.minimum_text_size_mm or 1.8, 1.8)
             items_to_place.append(("warnings", ElementType.TEXT, info.warnings, w, h, f_size, [0.0, 90.0, 270.0]))
 
+        # Place human-readable serial number if provided in medicine information
+        if info.serial_number:
+            text = f"SN: {info.serial_number}" if not info.serial_number.startswith("SN:") else info.serial_number
+            w = min(usable_w, max(16.0, len(text) * 1.8))
+            h = 3.0
+            f_size = max(request.constraints.minimum_text_size_mm or 1.8, 1.8)
+            items_to_place.append(("serial_no", ElementType.TEXT, text, w, h, f_size, [0.0, 90.0, 270.0]))
+
     if request.code:
+        # If code config has serial_number that wasn't in medicine information, place it as human-readable serial text
+        if getattr(request.code, "serial_number", None) and not (info and info.serial_number):
+            sn_val = request.code.serial_number
+            text = f"SN: {sn_val}" if not sn_val.startswith("SN:") else sn_val
+            w = min(usable_w, max(16.0, len(text) * 1.8))
+            h = 3.0
+            f_size = max(request.constraints.minimum_text_size_mm or 1.8, 1.8)
+            items_to_place.append(("serial_no", ElementType.TEXT, text, w, h, f_size, [0.0, 90.0, 270.0]))
+
         cval = request.code.code_value or request.code.value or "MED001"
-        cw = request.code.code_width_mm or request.code.minimum_code_size_mm or 20.0
-        ch = request.code.code_height_mm or 6.0
+        min_dim = request.code.minimum_code_size_mm or request.code.min_size_mm
+        if min_dim:
+            if request.code.code_type in (CodeType.DATAMATRIX, CodeType.QR):
+                cw = request.code.code_width_mm or min_dim
+                ch = request.code.code_height_mm or min_dim
+            else:
+                cw = request.code.code_width_mm or min_dim
+                ch = request.code.code_height_mm or 6.0
+        elif request.code.code_type == CodeType.QR:
+            cw = request.code.code_width_mm or request.code.code_height_mm or 12.0
+            ch = request.code.code_height_mm or request.code.code_width_mm or 12.0
+        else:
+            cw = request.code.code_width_mm or 20.0
+            ch = request.code.code_height_mm or 6.0
+
         rotations = [request.code.orientation_deg]
         for r in [0.0, 90.0, 270.0, 180.0]:
             if r not in rotations:
@@ -454,7 +485,7 @@ def _generate_candidate(
         other_items = [item for item in items_to_place if item[1] != ElementType.CODE]
         items_to_place = code_items + other_items
     elif strategy in ("critical_info_priority", "accessibility_spacious"):
-        critical_ids = ("med_name", "med_strength", "batch_no", "mfg_date", "exp_date", "batch_code", "warnings")
+        critical_ids = ("med_name", "med_strength", "batch_no", "mfg_date", "exp_date", "batch_code", "serial_no", "warnings")
         crit_items = [item for item in items_to_place if item[0] in critical_ids]
         sec_items = [item for item in items_to_place if item[0] not in critical_ids]
         crit_sorted = []

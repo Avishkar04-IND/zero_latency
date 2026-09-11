@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.layouts import router as layouts_router
+from app.api.layouts import router as layouts_router, v1_router as v1_layouts_router
 
 app = FastAPI(
     title="Pharmaceutical Layout Optimizer Engine",
@@ -26,6 +26,7 @@ app.add_middleware(
 )
 
 app.include_router(layouts_router)
+app.include_router(v1_layouts_router)
 
 
 @app.exception_handler(RequestValidationError)

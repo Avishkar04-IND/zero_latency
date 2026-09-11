@@ -1,12 +1,13 @@
 from enum import Enum
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import Any, Dict, List, Optional, Union
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class CodeType(str, Enum):
     HUMAN_READABLE = "human-readable"
     DATAMATRIX = "datamatrix"
     BARCODE = "barcode"
+    QR = "qr"
 
 
 class MarkingSide(str, Enum):
@@ -146,14 +147,30 @@ class TabletMarkingConfig(BaseModel):
 class CodeConfig(BaseModel):
     code_value: Optional[str] = Field(default=None, description="Batch-linked code value, e.g. MED001")
     value: Optional[str] = Field(default=None, description="Alias for code_value")
-    code_type: CodeType = Field(default=CodeType.HUMAN_READABLE, description="Code type: human-readable, datamatrix, barcode")
-    type: Optional[CodeType] = Field(default=None, description="Alias for code_type")
+    code_type: CodeType = Field(default=CodeType.HUMAN_READABLE, description="Code type: human-readable, datamatrix, barcode, qr")
+    type: Optional[Any] = Field(default=None, description="Alias for code_type")
     minimum_code_size_mm: Optional[float] = Field(default=None, gt=0, description="Minimum code dimension in mm")
     min_size_mm: Optional[float] = Field(default=None, gt=0, description="Alias for minimum_code_size_mm")
     code_width_mm: Optional[float] = Field(default=None, gt=0, description="Code physical width in mm")
     code_height_mm: Optional[float] = Field(default=None, gt=0, description="Code physical height in mm")
     orientation: Optional[float] = Field(default=None, description="Orientation angle in degrees")
     orientation_deg: float = Field(default=0.0, description="Orientation in degrees")
+    serial_number: Optional[str] = Field(default=None, description="Human-readable serial number associated with code")
+
+    @field_validator("code_type", "type", mode="before")
+    @classmethod
+    def normalize_code_type(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            v_norm = v.strip().lower().replace("_", "-")
+            if v_norm in ("qr", "qrcode", "qr-code"):
+                return CodeType.QR
+            if v_norm in ("datamatrix", "data-matrix"):
+                return CodeType.DATAMATRIX
+            if v_norm in ("barcode", "bar-code"):
+                return CodeType.BARCODE
+            if v_norm in ("human-readable", "humanreadable"):
+                return CodeType.HUMAN_READABLE
+        return v
 
     @model_validator(mode="after")
     def sync_and_validate(self) -> "CodeConfig":
@@ -174,6 +191,18 @@ class CodeConfig(BaseModel):
         if actual_min_size is not None:
             object.__setattr__(self, "minimum_code_size_mm", actual_min_size)
             object.__setattr__(self, "min_size_mm", actual_min_size)
+
+        # Ensure square dimensions for 2D matrix codes when min_size is supplied and width or height is missing
+        if self.code_type in (CodeType.DATAMATRIX, CodeType.QR):
+            min_dim = actual_min_size
+            if min_dim:
+                if self.code_width_mm is None and self.code_height_mm is None:
+                    object.__setattr__(self, "code_width_mm", min_dim)
+                    object.__setattr__(self, "code_height_mm", min_dim)
+                elif self.code_width_mm is not None and self.code_height_mm is None:
+                    object.__setattr__(self, "code_height_mm", self.code_width_mm)
+                elif self.code_height_mm is not None and self.code_width_mm is None:
+                    object.__setattr__(self, "code_width_mm", self.code_height_mm)
 
         actual_orient = self.orientation if self.orientation is not None else self.orientation_deg
         object.__setattr__(self, "orientation_deg", actual_orient)
@@ -199,6 +228,23 @@ class MedicineInformation(BaseModel):
     storage: Optional[str] = None
     warnings: Optional[str] = None
     code: Optional[str] = None
+    serial_number: Optional[str] = None
+    dosage: Optional[str] = None
+    batch_number: Optional[str] = None
+    manufacturing_date: Optional[str] = None
+    expiry_date: Optional[str] = None
+
+    @model_validator(mode="after")
+    def map_backend_fields(self) -> "MedicineInformation":
+        if not self.strength and self.dosage:
+            object.__setattr__(self, "strength", self.dosage)
+        if not self.batch and self.batch_number:
+            object.__setattr__(self, "batch", self.batch_number)
+        if not self.mfg and self.manufacturing_date:
+            object.__setattr__(self, "mfg", self.manufacturing_date)
+        if not self.exp and self.expiry_date:
+            object.__setattr__(self, "exp", self.expiry_date)
+        return self
 
 
 class PrintingConstraints(BaseModel):
@@ -380,3 +426,177 @@ class LayoutPreviewRequest(BaseModel):
         if self.layout is None and self.request is None:
             raise ValueError("Either 'layout' or 'request' must be provided for preview")
         return self
+
+
+class StructuredPrintDataRequest(BaseModel):
+    """Adapter model accepting backend-style structured print data or standard layout inputs."""
+
+    model_config = ConfigDict(extra="allow")
+
+    package: Optional[Union[PackageModel, Dict[str, Any]]] = None
+    tablet: Optional[Union[TabletConfig, Dict[str, Any]]] = None
+    marking: Optional[TabletMarkingConfig] = None
+    code: Optional[Any] = None
+    codes: Optional[List[Dict[str, Any]]] = None
+    medicine: Optional[Dict[str, Any]] = None
+    batch: Optional[Dict[str, Any]] = None
+    information: Optional[MedicineInformation] = None
+    dosage: Optional[str] = None
+    batch_number: Optional[str] = None
+    manufacturing_date: Optional[str] = None
+    expiry_date: Optional[str] = None
+    serial_number: Optional[str] = None
+    constraints: PrintingConstraints = Field(default_factory=PrintingConstraints)
+    min_margin_mm: Optional[float] = None
+    optimization_target: Optional[str] = "RECOMMEND"
+
+    def to_layout_request(self) -> LayoutRequest:
+        return parse_print_data_to_layout_request(self.model_dump())
+
+
+def parse_print_data_to_layout_request(
+    data: Union[LayoutRequest, StructuredPrintDataRequest, Dict[str, Any]]
+) -> LayoutRequest:
+    """Lightweight adapter that converts backend structured print data or existing requests into a LayoutRequest."""
+    if isinstance(data, LayoutRequest):
+        return data
+
+    if isinstance(data, StructuredPrintDataRequest):
+        data = data.model_dump()
+
+    if not isinstance(data, dict):
+        raise ValueError("Print data must be a dictionary or LayoutRequest instance.")
+
+    data_dict = dict(data)
+
+    # Resolve medicine information
+    med_info_dict: Dict[str, Any] = {}
+    if data_dict.get("information"):
+        if isinstance(data_dict["information"], MedicineInformation):
+            med_info_dict = data_dict["information"].model_dump()
+        elif isinstance(data_dict["information"], dict):
+            med_info_dict = dict(data_dict["information"])
+
+    # If backend provided 'medicine' dict (e.g. from backend API /api/v1/medicines)
+    if "medicine" in data_dict and isinstance(data_dict["medicine"], dict):
+        med = data_dict["medicine"]
+        if "name" in med and not med_info_dict.get("medicine_name"):
+            med_info_dict["medicine_name"] = med["name"]
+        if "dosage" in med and not med_info_dict.get("dosage") and not med_info_dict.get("strength"):
+            med_info_dict["dosage"] = med["dosage"]
+        if "manufacturer" in med and not med_info_dict.get("manufacturer"):
+            med_info_dict["manufacturer"] = med["manufacturer"]
+        for k, v in med.items():
+            if k not in med_info_dict:
+                med_info_dict[k] = v
+
+    # If backend provided 'batch' dict (e.g. from backend API /api/v1/batches)
+    if "batch" in data_dict and isinstance(data_dict["batch"], dict):
+        batch = data_dict["batch"]
+        if "batch_number" in batch and not med_info_dict.get("batch_number") and not med_info_dict.get("batch"):
+            med_info_dict["batch_number"] = batch["batch_number"]
+        if "manufacturing_date" in batch and not med_info_dict.get("manufacturing_date") and not med_info_dict.get("mfg"):
+            med_info_dict["manufacturing_date"] = batch["manufacturing_date"]
+        if "expiry_date" in batch and not med_info_dict.get("expiry_date") and not med_info_dict.get("exp"):
+            med_info_dict["expiry_date"] = batch["expiry_date"]
+        for k, v in batch.items():
+            if k not in med_info_dict:
+                med_info_dict[k] = v
+
+    # Top-level direct fields mapping if provided
+    for field_name in (
+        "dosage",
+        "batch_number",
+        "manufacturing_date",
+        "expiry_date",
+        "serial_number",
+        "medicine_name",
+        "strength",
+        "batch",
+        "mfg",
+        "exp",
+    ):
+        val = data_dict.get(field_name)
+        if val is not None and isinstance(val, str) and field_name not in med_info_dict:
+            med_info_dict[field_name] = val
+
+    # If backend provided 'code' dict
+    code_config_dict: Optional[Dict[str, Any]] = None
+    if "code" in data_dict and isinstance(data_dict["code"], dict):
+        code_input = dict(data_dict["code"])
+        c_val = (
+            code_input.get("code_data")
+            or code_input.get("verification_url")
+            or code_input.get("value")
+            or code_input.get("code_value")
+        )
+        c_type = code_input.get("code_type") or code_input.get("type") or "datamatrix"
+        c_serial = code_input.get("serial_number")
+        if c_serial and not med_info_dict.get("serial_number"):
+            med_info_dict["serial_number"] = c_serial
+
+        code_config_dict = {
+            "code_value": c_val,
+            "code_type": c_type,
+            "minimum_code_size_mm": code_input.get("min_size_mm") or code_input.get("minimum_code_size_mm"),
+            "code_width_mm": code_input.get("code_width_mm"),
+            "code_height_mm": code_input.get("code_height_mm"),
+            "orientation_deg": code_input.get("orientation_deg") or code_input.get("orientation") or 0.0,
+            "serial_number": c_serial,
+        }
+    elif "code" in data_dict and data_dict["code"] is not None:
+        if isinstance(data_dict["code"], CodeConfig):
+            code_config_dict = data_dict["code"].model_dump()
+        else:
+            code_config_dict = data_dict["code"]
+
+    # Also handle 'codes' list from /api/v1/codes/generate
+    if (
+        not code_config_dict
+        and "codes" in data_dict
+        and isinstance(data_dict["codes"], list)
+        and len(data_dict["codes"]) > 0
+    ):
+        first_code = data_dict["codes"][0]
+        c_val = first_code.get("code_data") or first_code.get("verification_url") or first_code.get("code_value")
+        c_serial = first_code.get("serial_number")
+        if c_serial and not med_info_dict.get("serial_number"):
+            med_info_dict["serial_number"] = c_serial
+        c_type = data_dict.get("code_type") or first_code.get("code_type") or "datamatrix"
+        code_config_dict = {
+            "code_value": c_val,
+            "code_type": c_type,
+            "minimum_code_size_mm": first_code.get("min_size_mm") or 12.0,
+            "serial_number": c_serial,
+        }
+
+    # Resolve package
+    pkg_input = data_dict.get("package") or data_dict.get("packaging")
+    if not pkg_input and "package_width_mm" in data_dict and "package_height_mm" in data_dict:
+        pkg_input = {
+            "package_width_mm": data_dict["package_width_mm"],
+            "package_height_mm": data_dict["package_height_mm"],
+            "printing_area_width_mm": data_dict.get("printing_area_width_mm", data_dict["package_width_mm"]),
+            "printing_area_height_mm": data_dict.get("printing_area_height_mm", data_dict["package_height_mm"]),
+            "printing_area_x_mm": data_dict.get("printing_area_x_mm", 0.0),
+            "printing_area_y_mm": data_dict.get("printing_area_y_mm", 0.0),
+        }
+
+    # Resolve tablet
+    tbl_input = data_dict.get("tablet") or data_dict.get("tablets")
+    if not tbl_input and "tablet_count" in data_dict and "tablet_diameter_mm" in data_dict:
+        tbl_input = {
+            "tablet_count": data_dict["tablet_count"],
+            "tablet_diameter_mm": data_dict["tablet_diameter_mm"],
+        }
+
+    return LayoutRequest(
+        package=pkg_input,
+        tablet=tbl_input,
+        marking=data_dict.get("marking"),
+        code=code_config_dict,
+        information=MedicineInformation(**med_info_dict),
+        constraints=data_dict.get("constraints") or PrintingConstraints(),
+        min_margin_mm=data_dict.get("min_margin_mm"),
+        optimization_target=data_dict.get("optimization_target") or "RECOMMEND",
+    )

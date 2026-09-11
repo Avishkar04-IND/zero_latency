@@ -1,9 +1,51 @@
 # Layout Engine API Contract Specification
 
 **Module Owner**: Member 3 (`/layout-engine/`)  
-**Service Version**: `0.1.0`  
-**Base Path**: `/api/layouts`  
+**Service Version**: `0.2.0` (Task 19/20 Integration Update)  
+**Primary Integration Path**: `/api/v1/layout/optimize`  
+**Legacy Compatibility Paths**: `/api/layouts/recommend`, `/api/layouts/preview`, `/api/layouts/pdf`, `/api/layouts/optimize`  
 **Primary Unit**: Millimeters (`mm`)  
+
+---
+
+## Architectural Scope & Boundaries
+
+> **IMPORTANT ARCHITECTURAL BOUNDARY**:
+> - **No Database Access**: The Layout Engine operates **purely in-memory** and **does NOT connect to PostgreSQL or any external datastore**. It receives physical parameters via HTTP JSON payloads and returns calculated layouts synchronously.
+> - **No Authentication / Verification**: The Layout Engine does **NOT verify pharmaceutical authenticity or cryptographic signatures**. Verification is the exclusive responsibility of the Backend module (`/backend/`).
+> - **Stateless Determinism**: For identical physical inputs, the Layout Engine produces bit-for-bit identical layout element coordinates and strategy rankings.
+
+---
+
+## Integration Key Features (Task 19)
+
+### 1. Code-Type Normalization & QR Support
+The engine supports `CodeType.QR` (`qr`) alongside `DATAMATRIX`, `BARCODE`, and `HUMAN_READABLE`. All code types are normalized case-insensitively, with full support for common aliases:
+- **QR**: `qr`, `QR`, `qrcode`, `QRCode`, `QRCODE`, `qr-code`, `qr_code` → `CodeType.QR`
+- **DataMatrix**: `datamatrix`, `DATAMATRIX`, `DataMatrix`, `data-matrix`, `DATA-MATRIX` → `CodeType.DATAMATRIX`
+- **Barcode**: `barcode`, `BARCODE`, `BarCode`, `bar-code`, `BAR-CODE` → `CodeType.BARCODE`
+- **Human-Readable**: `human-readable`, `HUMAN-READABLE`, `humanreadable` → `CodeType.HUMAN_READABLE`
+- **Field Aliases**: `type` is accepted for `code_type`, `value` is accepted for `code_value`, `min_size_mm` is accepted for `minimum_code_size_mm`.
+
+### 2. QR and DataMatrix Square Sizing Behavior
+- When only `minimum_code_size_mm` (or `min_size_mm`) is provided for 2D matrix symbologies (QR, DataMatrix), dimensions default to a square:  
+  `code_width_mm = min_size` and `code_height_mm = min_size`.
+- If explicit rectangular dimensions are provided (`code_width_mm` and `code_height_mm`), those explicit dimensions are strictly respected.
+- If minimum size is omitted, existing default dimensions are preserved (`20.0 x 6.0 mm` for DataMatrix/Barcode/Human-readable).
+
+### 3. Backend Pharmaceutical Field Mapping
+The engine maps structured backend print data into standard layout fields without modifying or overwriting authoritative values:
+- `dosage` → `strength` (applied only if `strength` is not already specified)
+- `batch_number` → `batch` (applied only if `batch` is not already specified)
+- `manufacturing_date` → `mfg` (applied only if `mfg` is not already specified)
+- `expiry_date` → `exp` (applied only if `exp` is not already specified)
+- `serial_number` → human-readable serial text element (`id="serial_no"`, formatted as `"SN: <serial_number>"`)
+
+### 4. Dual Scannable + Human-Readable Code Placement
+- Supports simultaneous placement of:
+  1. A scannable 2D code element (`id="batch_code"`, `type="code"`, e.g. QR or DataMatrix verification URL / data matrix payload)
+  2. A human-readable serial text element (`id="serial_no"`, `type="text"`, formatted as `"SN: <serial_number>"`)
+- Both elements are placed collision-free using the existing deterministic placement engine without collision or boundary violation.
 
 ---
 
@@ -14,7 +56,7 @@
 | `200 OK` | Request Succeeded / Layout Evaluated | Valid recommendation, preview SVG rendered, or valid evaluation report returned |
 | `400 Bad Request` | Layout Generation or Rendering Error | Invalid preview input or layout placement failure during binary export (e.g. PDF export on impossible layout) |
 | `404 Not Found` | Resource Not Found | Target layout ID does not exist in memory/store |
-| `422 Unprocessable Entity` | Request Validation Error | Negative dimensions, missing mandatory fields, or printing area exceeding packaging boundaries |
+| `422 Unprocessable Entity` | Request Validation Error | Negative dimensions, missing mandatory fields, invalid data structures, or printing area exceeding packaging boundaries |
 | `500 Internal Server Error` | Rendering / Processing Failure | Internal vector or binary compilation error |
 
 ### Standard Validation Error Response Schema (HTTP 422)
@@ -57,10 +99,215 @@
 
 ---
 
-## 1. POST /api/layouts/recommend
+## 1. POST /api/v1/layout/optimize (Primary Integration Route)
 
 ### Purpose
-Calculates deterministic, collision-free, margin-compliant physical placements for packaging blister cavities, batch-linked codes, and medicine information. Evaluates placement quality under three deterministic optimization strategies (`COST`, `BALANCED`, `ACCESSIBILITY`) and returns the recommended optimal layout along with all valid scored alternatives.
+Primary integration endpoint for the Web Panel and Backend Core. Accepts either standard `LayoutRequest` models or backend-style structured print data (incorporating `medicine`, `batch`, and `code` or `codes` list). Adapts input into the deterministic multi-strategy optimization pipeline and returns an optimized `LayoutPlan`.
+
+### Request Schema & Compatibility
+The endpoint accepts `application/json` with either:
+1. **Backend Structured Print Data**:
+   - `package`: Package dimensions (`package_width_mm`, `package_height_mm`, etc.)
+   - `tablet`: Tablet cavity configuration (`tablet_count`, `tablet_diameter_mm`)
+   - `medicine`: Dictionary containing `name`, `dosage`, `manufacturer` (e.g. from `/api/v1/medicines`)
+   - `batch`: Dictionary containing `batch_number`, `manufacturing_date`, `expiry_date` (e.g. from `/api/v1/batches`)
+   - `code`: Dictionary containing `type` / `code_type`, `value` / `code_data` / `verification_url`, `min_size_mm`, `serial_number`
+   - *OR* `codes`: List of code dictionaries from `/api/v1/codes/generate`
+   - `constraints` (optional): Margins, spacing, font sizes
+   - `optimization_target` (optional): `RECOMMEND` (default), `COST`, `BALANCED`, `ACCESSIBILITY`
+2. **Standard LayoutRequest**: Direct `package`, `tablet`, `code`, `information`, `constraints` objects.
+
+### Realistic Backend Integration Example Request
+```json
+{
+  "package": {
+    "package_width_mm": 120.0,
+    "package_height_mm": 60.0,
+    "printing_area_width_mm": 105.0,
+    "printing_area_height_mm": 50.0,
+    "printing_area_x_mm": 7.5,
+    "printing_area_y_mm": 5.0
+  },
+  "tablet": {
+    "tablet_count": 6,
+    "tablet_diameter_mm": 9.0
+  },
+  "medicine": {
+    "name": "Amoxicillin and Potassium Clavulanate",
+    "dosage": "625 mg",
+    "manufacturer": "HealthGuard Pharma"
+  },
+  "batch": {
+    "batch_number": "BN-2026-9901",
+    "manufacturing_date": "2026-03-01",
+    "expiry_date": "2028-03-01"
+  },
+  "code": {
+    "type": "QR",
+    "value": "https://rx.zero-latency.org/v/BN20269901",
+    "min_size_mm": 12.0,
+    "serial_number": "SN-9901-7788"
+  },
+  "optimization_target": "RECOMMEND"
+}
+```
+
+### Success Response (HTTP 200)
+```json
+{
+  "id": "layout_recommendation_accessibility_001",
+  "success": true,
+  "recommended_strategy": "ACCESSIBILITY",
+  "score": 82.15,
+  "space_utilization": 0.54,
+  "readability": 0.94,
+  "print_efficiency": 0.81,
+  "scan_reliability": 0.96,
+  "cost_efficiency": 0.54,
+  "package": {
+    "package_width_mm": 120.0,
+    "package_height_mm": 60.0,
+    "printing_area_width_mm": 105.0,
+    "printing_area_height_mm": 50.0,
+    "printing_area_x_mm": 7.5,
+    "printing_area_y_mm": 5.0
+  },
+  "elements": [
+    {
+      "id": "cavity_1",
+      "type": "tablet_cavity",
+      "x_mm": 77.0,
+      "y_mm": 20.0,
+      "width_mm": 9.0,
+      "height_mm": 9.0
+    },
+    {
+      "id": "med_name",
+      "type": "text",
+      "content": "Amoxicillin and Potassium Clavulanate",
+      "x_mm": 8.5,
+      "y_mm": 6.0,
+      "width_mm": 85.1,
+      "height_mm": 4.8,
+      "font_size_mm": 3.2
+    },
+    {
+      "id": "med_strength",
+      "type": "text",
+      "content": "625 mg",
+      "x_mm": 8.5,
+      "y_mm": 12.8,
+      "width_mm": 16.0,
+      "height_mm": 4.2,
+      "font_size_mm": 2.8
+    },
+    {
+      "id": "batch_no",
+      "type": "text",
+      "content": "B.No: BN-2026-9901",
+      "x_mm": 8.5,
+      "y_mm": 19.0,
+      "width_mm": 32.4,
+      "height_mm": 3.2,
+      "font_size_mm": 2.1
+    },
+    {
+      "id": "mfg_date",
+      "type": "text",
+      "content": "MFG: 2026-03-01",
+      "x_mm": 26.5,
+      "y_mm": 12.8,
+      "width_mm": 27.0,
+      "height_mm": 3.0,
+      "font_size_mm": 2.0
+    },
+    {
+      "id": "exp_date",
+      "type": "text",
+      "content": "EXP: 2028-03-01",
+      "x_mm": 8.5,
+      "y_mm": 24.2,
+      "width_mm": 27.0,
+      "height_mm": 3.0,
+      "font_size_mm": 2.0
+    },
+    {
+      "id": "batch_code",
+      "type": "code",
+      "content": "https://rx.zero-latency.org/v/BN20269901",
+      "code_type": "qr",
+      "x_mm": 95.6,
+      "y_mm": 6.0,
+      "width_mm": 12.0,
+      "height_mm": 12.0
+    },
+    {
+      "id": "serial_no",
+      "type": "text",
+      "content": "SN: SN-9901-7788",
+      "x_mm": 42.9,
+      "y_mm": 19.0,
+      "width_mm": 28.8,
+      "height_mm": 3.0,
+      "font_size_mm": 1.8
+    },
+    {
+      "id": "manufacturer",
+      "type": "text",
+      "content": "Mfd: HealthGuard Pharma",
+      "x_mm": 55.5,
+      "y_mm": 12.8,
+      "width_mm": 36.8,
+      "height_mm": 3.0,
+      "font_size_mm": 1.8
+    }
+  ],
+  "alternatives": [
+    {
+      "strategy": "ACCESSIBILITY",
+      "score": 82.15,
+      "space_utilization": 0.54,
+      "readability": 0.94,
+      "print_efficiency": 0.81,
+      "cost_efficiency": 0.54,
+      "scan_reliability": 0.96,
+      "layout": { "..." : "..." }
+    },
+    {
+      "strategy": "BALANCED",
+      "score": 81.88,
+      "space_utilization": 0.62,
+      "readability": 0.88,
+      "print_efficiency": 0.84,
+      "cost_efficiency": 0.62,
+      "scan_reliability": 0.92,
+      "layout": { "..." : "..." }
+    },
+    {
+      "strategy": "COST",
+      "score": 80.45,
+      "space_utilization": 0.74,
+      "readability": 0.78,
+      "print_efficiency": 0.87,
+      "cost_efficiency": 0.74,
+      "scan_reliability": 0.88,
+      "layout": { "..." : "..." }
+    }
+  ],
+  "validation": {
+    "valid": true,
+    "errors": [],
+    "warnings": []
+  }
+}
+```
+
+---
+
+## 2. POST /api/layouts/recommend (Retained Compatibility Route)
+
+### Purpose
+Calculates deterministic, collision-free, margin-compliant physical placements for packaging blister cavities, batch-linked codes, and medicine information using standard `LayoutRequest`. Evaluates placement quality under three deterministic optimization strategies (`COST`, `BALANCED`, `ACCESSIBILITY`) and returns the recommended optimal layout along with all valid scored alternatives.
 
 ### Request Structure
 - **Content-Type**: `application/json`
@@ -256,10 +503,10 @@ When physical constraints cannot be satisfied (e.g. 100 cavities on a 20mm blist
 
 ---
 
-## 2. POST /api/layouts/preview
+## 3. POST /api/layouts/preview (Retained Compatibility Route)
 
 ### Purpose
-Generates a standalone, standards-compliant SVG vector preview representing the physical packaging layout. Preserves physical aspect ratio and visually renders package boundary, printable area, round/non-round tablet cavities, text elements, and reserved DataMatrix/Barcode areas.
+Generates a standalone, standards-compliant SVG vector preview representing the physical packaging layout. Preserves physical aspect ratio and visually renders package boundary, printable area, round/non-round tablet cavities, text elements, and reserved DataMatrix/QR/Barcode areas.
 
 ### Request Structure
 - **Content-Type**: `application/json`
@@ -331,7 +578,7 @@ Generates a standalone, standards-compliant SVG vector preview representing the 
 
 ---
 
-## 3. POST /api/layouts/pdf
+## 4. POST /api/layouts/pdf (Retained Compatibility Route)
 
 ### Purpose
 Exports the physical packaging layout to an ISO 32000 / PDF 1.4 binary stream. Converts millimeter dimensions to physical PDF points (`points = mm * 72 / 25.4`), matching the package boundary to the PDF MediaBox. Contains selectable text elements and accurately scaled cavities.
