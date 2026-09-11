@@ -87,6 +87,8 @@ export interface VerifiedMedicineContext {
   warnings?: string;
   indications?: string;
   side_effects?: string;
+  dosage_instructions?: string;
+  schedule_type?: string;
   is_genuine?: boolean;
   verification_status?: string;
   status?: string;

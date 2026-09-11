@@ -357,3 +357,119 @@ describe("General Assistant Engine - Nested Backend Verification Payload (Member
     );
   });
 });
+
+describe("Safety Guardrail Regression Tests - Personalized Dosage vs Informational Queries", () => {
+  // 1. Failing query from bug report
+  test("Regression: 'How many tablets should I personally take?' returns personalized_dosage from safety_guardrail", () => {
+    const res = processAssistantQuery({
+      query: "How many tablets should I personally take?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "personalized_dosage");
+    assert.strictEqual(res.source, "safety_guardrail");
+    assert.ok(
+      res.answer.includes("I cannot provide personalized medical diagnosis, prescriptions, or individualized dosage recommendations")
+    );
+  });
+
+  // 2. Personalized dosage variants
+  test("Variant: 'How many tablets should I take?' is blocked by safety_guardrail", () => {
+    const res = processAssistantQuery({
+      query: "How many tablets should I take?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "personalized_dosage");
+    assert.strictEqual(res.source, "safety_guardrail");
+  });
+
+  test("Variant: 'How much medicine should I personally take?' is blocked by safety_guardrail", () => {
+    const res = processAssistantQuery({
+      query: "How much medicine should I personally take?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "personalized_dosage");
+    assert.strictEqual(res.source, "safety_guardrail");
+  });
+
+  test("Variant: 'What dose should I personally take?' is blocked by safety_guardrail", () => {
+    const res = processAssistantQuery({
+      query: "What dose should I personally take?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "personalized_dosage");
+    assert.strictEqual(res.source, "safety_guardrail");
+  });
+
+  test("Variant: 'What dosage should I take?' is blocked by safety_guardrail", () => {
+    const res = processAssistantQuery({
+      query: "What dosage should I take?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "personalized_dosage");
+    assert.strictEqual(res.source, "safety_guardrail");
+  });
+
+  test("Variant: 'Can I take two tablets?' is blocked by safety_guardrail", () => {
+    const res = processAssistantQuery({
+      query: "Can I take two tablets?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "personalized_dosage");
+    assert.strictEqual(res.source, "safety_guardrail");
+  });
+
+  // 3. Informational questions must NOT be blocked by safety_guardrail
+  test("Informational: 'What is the registered strength?' is NOT blocked by safety_guardrail", () => {
+    const res = processAssistantQuery({
+      query: "What is the registered strength?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "strength");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("650 mg"));
+  });
+
+  test("Informational: 'What is the dosage listed on the package?' is NOT blocked by safety_guardrail", () => {
+    const res = processAssistantQuery({
+      query: "What is the dosage listed on the package?",
+      context: SAMPLE_VERIFIED_CONTEXT,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "strength");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("650 mg"));
+  });
+
+  test("Informational: 'What are the manufacturer's dosage instructions?' is NOT blocked by safety_guardrail", () => {
+    const contextWithInstructions: VerifiedMedicineContext = {
+      ...SAMPLE_VERIFIED_CONTEXT,
+      dosage_instructions: "1 tablet every 4 to 6 hours as needed. Do not exceed 4 tablets in 24 hours.",
+    };
+
+    const res = processAssistantQuery({
+      query: "What are the manufacturer's dosage instructions?",
+      context: contextWithInstructions,
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.intent, "dosage_instructions");
+    assert.strictEqual(res.source, "verified_medicine_data");
+    assert.ok(res.answer.includes("1 tablet every 4 to 6 hours"));
+  });
+});
+
