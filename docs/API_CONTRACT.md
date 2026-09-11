@@ -323,7 +323,73 @@ Streams the high-resolution vector SVG directly (`image/svg+xml`) for packaging 
 
 ---
 
-## 4. Mobile Code Verification & Authenticity
+## 6. Layout Engine Print Data Integration (Member 3 & Web Admin)
+
+The Layout Engine and Web Admin retrieve backend-authoritative packaging specifications, manufacturer identity, and pre-formatted label lines without directly accessing the database.
+
+### `GET /layouts/print-data/{code_or_serial}`
+Fetches verified structured printing data for a specific package unit code or serial (e.g. `MD110` or `MD110-X7K9`).
+
+* **Response (200 OK):**
+```json
+{
+  "code": "MD110-X7K9",
+  "serial_number": "MD110-X7K9",
+  "code_hash": "a4f890123ef...",
+  "datamatrix_code": "(01)08901234567890(17)280911(10)BT-2026-101(21)MD110-X7K9",
+  "qr_svg": "<svg ...</svg>",
+  "qr_data_url": "data:image/png;base64,...",
+  "medicine": {
+    "name": "Dolo-650",
+    "generic_name": "Paracetamol Tablets IP",
+    "strength": "650 mg",
+    "dosage_form": "Tablet",
+    "tablet_shape": "Capsule-shaped",
+    "tablet_color": "White",
+    "coating_type": "Uncoated",
+    "storage_conditions": "Store below 30°C in a dry place."
+  },
+  "batch": {
+    "batch_number": "BT-2026-101",
+    "mfg_date": "2026-06-01",
+    "exp_date": "2028-09-01",
+    "quantity": 50000,
+    "mrp": 32.50,
+    "status": "active"
+  },
+  "manufacturer": {
+    "name": "Micro Labs Limited",
+    "licence_no": "LIC-MH-2026-001",
+    "contact_email": "admin@microlabs-demo.com",
+    "address": "Race Course Road, Bangalore"
+  },
+  "branch": {
+    "name": "Mumbai Formulation Facility",
+    "code": "BR-MUM-01",
+    "city": "Mumbai",
+    "state": "Maharashtra"
+  },
+  "warnings": [
+    "Overdose may cause serious liver damage. Avoid consumption with alcohol."
+  ],
+  "print_data": {
+    "line1_header": "Dolo-650 650 mg",
+    "line2_generic": "Generic: Paracetamol Tablets IP",
+    "line3_batch_exp": "B.No: BT-2026-101 | Mfg: 2026-06-01 | Exp: 2028-09-01",
+    "line4_mrp": "MRP Rs. 32.50 (Inclusive of all taxes)",
+    "line5_storage": "Storage: Store below 30°C in a dry place.",
+    "line6_license": "Mfg. Lic. No: LIC-MH-2026-001",
+    "barcode_payload": "(01)08901234567890(17)280911(10)BT-2026-101(21)MD110-X7K9"
+  }
+}
+```
+
+### `GET /layouts/print-data/batch/{batch_id}`
+Returns the batch packaging template specifications along with all generated package unit codes for multi-pack, carton, or blister strip layout generation.
+
+---
+
+## 7. Mobile Code Verification & Authenticity
 
 ### `POST /codes/verify`
 The primary endpoint called by the **Flutter Mobile App camera scanner**.

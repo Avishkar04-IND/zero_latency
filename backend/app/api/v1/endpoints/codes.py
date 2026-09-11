@@ -38,13 +38,15 @@ def generate_codes(
     medicine = batch.medicine
     created_codes: List[Code] = []
 
+    prefix = (req.prefix or "MED").strip().upper()
+
     for _ in range(req.count):
-        # Generate non-sequential cryptographic serial
-        serial = generate_serial_number(prefix="MED")
+        # Generate non-sequential cryptographic serial with specified prefix
+        serial = generate_serial_number(prefix=prefix)
         
         # Ensure collision-free uniqueness
         while db.query(Code).filter(Code.serial_number == serial).first():
-            serial = generate_serial_number(prefix="MED")
+            serial = generate_serial_number(prefix=prefix)
 
         # Compute tamper-evident HMAC hash
         c_hash = compute_code_hash(serial)

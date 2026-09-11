@@ -17,6 +17,11 @@ class CodeGenerateRequest(BaseModel):
         description="Number of unique codes to generate (max 500 per batch)",
         json_schema_extra={"example": 1}
     )
+    prefix: Optional[str] = Field(
+        default=None,
+        description="Optional serial code prefix (e.g. 'MD110', 'MED', or batch tag)",
+        json_schema_extra={"example": "MD110"}
+    )
 
 
 class CodeResponse(BaseModel):

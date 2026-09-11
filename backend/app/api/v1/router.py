@@ -10,6 +10,7 @@ from backend.app.api.v1.endpoints import (
     scans,
     accessibility,
     analytics,
+    layouts,
 )
 
 api_router = APIRouter()
@@ -24,3 +25,4 @@ api_router.include_router(verification.router)
 api_router.include_router(scans.router)
 api_router.include_router(accessibility.router)
 api_router.include_router(analytics.router)
+api_router.include_router(layouts.router)

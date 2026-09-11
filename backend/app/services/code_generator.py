@@ -13,15 +13,14 @@ import qrcode.image.svg
 from qrcode.image.svg import SvgPathImage
 
 
-def generate_serial_number(prefix: str = "MED") -> str:
+def generate_serial_number(prefix: str = "MED", segments: int = 3) -> str:
     """
     Generates a cryptographically strong, non-sequential alphanumeric serial number.
-    Format: MED-XXXX-XXXX-XXXX (e.g. MED-7A9K-W8Q4-P1B2)
+    Format: PREFIX-XXXX-XXXX-... (e.g. MED-7A9K-W8Q4-P1B2 or MD110-X7K9)
     """
-    segment1 = secrets.token_hex(2).upper()
-    segment2 = secrets.token_hex(2).upper()
-    segment3 = secrets.token_hex(2).upper()
-    return f"{prefix}-{segment1}-{segment2}-{segment3}"
+    clean_prefix = prefix.strip().replace(" ", "").upper()
+    segs = [secrets.token_hex(2).upper() for _ in range(max(1, segments))]
+    return f"{clean_prefix}-" + "-".join(segs)
 
 def compute_code_hash(serial_number: str) -> str:
     """
