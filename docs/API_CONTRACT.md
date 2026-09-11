@@ -208,55 +208,112 @@
 
 ## 7. Layout Recommendation APIs
 
-### Endpoint: Optimize Package Layout
-* **Endpoint**: `/api/v1/layout/optimize`
+### Endpoint: Recommend & Optimize Package Layout
+* **Endpoint**: `/api/layouts/recommend`
 * **HTTP Method**: `POST`
 * **Authentication**: Internal Service API Key / Bearer Token
 * **Request**:
   ```json
   {
-    "package_dimensions": { "length": 0.0, "width": 0.0, "height": 0.0 },
-    "code_type": "DATAMATRIX",
-    "text_content": { "name": "", "dosage": "", "warning": "" },
-    "optimization_target": "ACCESSIBILITY|COST|BALANCED"
+    "package": {
+      "package_width_mm": 130.0,
+      "package_height_mm": 65.0,
+      "printing_area_width_mm": 110.0,
+      "printing_area_height_mm": 55.0,
+      "printing_area_x_mm": 10.0,
+      "printing_area_y_mm": 5.0
+    },
+    "tablet": {
+      "tablet_count": 6,
+      "tablet_diameter_mm": 9.0
+    },
+    "code": {
+      "value": "MED001-DM",
+      "code_type": "datamatrix",
+      "min_size_mm": 12.0
+    },
+    "information": {
+      "medicine_name": "Amoxicillin",
+      "strength": "500 mg",
+      "batch": "B2026-X",
+      "mfg": "2026-03",
+      "exp": "2028-03"
+    },
+    "constraints": {
+      "minimum_margin_mm": 2.0,
+      "minimum_element_spacing_mm": 1.5
+    },
+    "optimization_target": "RECOMMEND|COST|BALANCED|ACCESSIBILITY"
   }
   ```
 * **Response**:
   ```json
   {
-    "layout_id": "placeholder_uuid",
-    "code_placement": { "x": 0.0, "y": 0.0, "size": 0.0 },
-    "text_placements": [],
-    "cost_score": 0.0,
-    "accessibility_score": 0.0
+    "id": "layout_recommendation_balanced_001",
+    "success": true,
+    "recommended_strategy": "BALANCED",
+    "score": 83.42,
+    "space_utilization": 0.582,
+    "readability": 0.880,
+    "print_efficiency": 0.850,
+    "scan_reliability": 0.940,
+    "cost_efficiency": 0.582,
+    "package": { "..." : "..." },
+    "elements": [],
+    "alternatives": [
+      { "strategy": "BALANCED", "score": 83.42 },
+      { "strategy": "COST", "score": 81.15 },
+      { "strategy": "ACCESSIBILITY", "score": 79.80 }
+    ],
+    "validation": { "valid": true, "errors": [], "warnings": [] }
   }
   ```
-* **Error Responses**: `400 Bad Request`, `500 Internal Server Error`
+* **Error Responses**: `422 Unprocessable Entity` (Validation), `200 OK with success: false` (Placement failure)
 
 ---
 
-## 8. Layout Preview APIs
+## 8. Layout Preview & Export APIs
 
-### Endpoint: Render Layout Preview
-* **Endpoint**: `/api/v1/layout/preview`
+### Endpoint: Render Layout SVG Preview
+* **Endpoint**: `/api/layouts/preview`
 * **HTTP Method**: `POST`
 * **Authentication**: Internal Service API Key / Bearer Token
 * **Request**:
   ```json
   {
-    "layout_id": "placeholder_uuid",
-    "format": "SVG|PDF"
+    "layout": null,
+    "request": {
+      "package": { "..." : "..." },
+      "tablet": { "..." : "..." },
+      "code": { "..." : "..." },
+      "information": { "..." : "..." }
+    }
   }
   ```
 * **Response**:
   ```json
   {
-    "format": "SVG|PDF",
-    "preview_url": "placeholder_url",
-    "raw_vector": "placeholder_svg_content"
+    "success": true,
+    "layout_id": "layout_recommendation_balanced_001",
+    "validation": { "valid": true, "errors": [], "warnings": [] },
+    "svg": "<svg ...>...</svg>"
   }
   ```
-* **Error Responses**: `400 Bad Request`, `404 Not Found`
+* **Error Responses**: `422 Unprocessable Entity`, `400 Bad Request`
+
+### Endpoint: Export Layout PDF
+* **Endpoint**: `/api/layouts/pdf`
+* **HTTP Method**: `POST`
+* **Authentication**: Internal Service API Key / Bearer Token
+* **Request**:
+  ```json
+  {
+    "layout": null,
+    "request": { "..." : "..." }
+  }
+  ```
+* **Response**: Binary stream with `Content-Type: application/pdf` and `Content-Disposition: inline; filename="{layout_id}.pdf"`.
+* **Error Responses**: `422 Unprocessable Entity`, `400 Bad Request` (Placement failure)
 
 ---
 
