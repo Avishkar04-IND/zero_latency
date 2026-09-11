@@ -34,10 +34,14 @@ class AccessibilityRouter {
     );
   }
 
-  static void navigateToAssistant(BuildContext context, TTSService tts, ApiService api) {
+  static void navigateToAssistant(BuildContext context, TTSService tts, ApiService api, {VerificationResult? verificationResult}) {
     Navigator.push(
       context,
-      createAccessibleRoute(AccessibleAssistantScreen(ttsService: tts, apiService: api)),
+      createAccessibleRoute(AccessibleAssistantScreen(
+        ttsService: tts,
+        apiService: api,
+        verificationResult: verificationResult,
+      )),
     );
   }
 

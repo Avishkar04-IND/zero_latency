@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/accessibility/accessibility_theme.dart';
 import '../../../core/accessibility/talkback_helpers.dart';
 import '../../../services/tts/tts_service.dart';
+import '../../../services/api/api_service.dart';
+import '../../../services/api/mock_api_service.dart';
 import '../../../shared/models/verification_model.dart';
 import '../../../shared/widgets/accessible_buttons.dart';
 import '../gestures/accessible_gesture_controller.dart';
@@ -12,11 +14,13 @@ import 'medicine_information_section.dart';
 class AccessibleMedicineReaderScreen extends StatefulWidget {
   final VerificationResult verificationResult;
   final TTSService ttsService;
+  final ApiService? apiService;
 
   const AccessibleMedicineReaderScreen({
     super.key,
     required this.verificationResult,
     required this.ttsService,
+    this.apiService,
   });
 
   @override
@@ -47,6 +51,15 @@ class _AccessibleMedicineReaderScreenState extends State<AccessibleMedicineReade
     }
   }
 
+  void _openAssistantWithContext() {
+    AccessibilityRouter.navigateToAssistant(
+      context,
+      widget.ttsService,
+      widget.apiService ?? MockApiService(),
+      verificationResult: widget.verificationResult,
+    );
+  }
+
   @override
   void dispose() {
     _controller.removeListener(_onControllerStateChanged);
@@ -66,6 +79,7 @@ class _AccessibleMedicineReaderScreenState extends State<AccessibleMedicineReade
       onSwipeLeftPrevious: _controller.previousSection,
       onSwipeDownRepeat: _controller.speakCurrentSection,
       onSwipeUpHome: () => Navigator.popUntil(context, (route) => route.isFirst),
+      onLongPressAssistant: _openAssistantWithContext,
       onTwoFingerTapHelp: () => AccessibilityRouter.navigateToHelp(context, widget.ttsService),
       child: Scaffold(
         backgroundColor: AccessibilityTheme.background,
@@ -77,6 +91,10 @@ class _AccessibleMedicineReaderScreenState extends State<AccessibleMedicineReade
           backgroundColor: AccessibilityTheme.background,
           actions: [
             IconButton(
+              icon: const Icon(Icons.mic, color: AccessibilityTheme.primary, size: 28),
+              onPressed: _openAssistantWithContext,
+            ),
+            IconButton(
               icon: const Icon(Icons.help_outline, color: AccessibilityTheme.primary, size: 28),
               onPressed: () => AccessibilityRouter.navigateToHelp(context, widget.ttsService),
             ),
@@ -87,7 +105,7 @@ class _AccessibleMedicineReaderScreenState extends State<AccessibleMedicineReade
             children: [
               // Top Medical Safety & Reader Instructions Header
               TalkBackSemantics(
-                label: 'Voice-first Medicine Reader active. Section ${state.currentIndex + 1} of ${sections.length}. Swipe right for next info section, swipe left for previous, swipe down to repeat audio.',
+                label: 'Voice-first Medicine Reader active. Section ${state.currentIndex + 1} of ${sections.length}. Swipe right for next info section, swipe left for previous, swipe down to repeat audio. Long press for Voice Assistant.',
                 isHeader: true,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -98,7 +116,7 @@ class _AccessibleMedicineReaderScreenState extends State<AccessibleMedicineReade
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Swipe right for NEXT • Swipe left for PREVIOUS',
+                          'Swipe right for NEXT • Long press for ASSISTANT',
                           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AccessibilityTheme.textSecondary),
                         ),
                       ),

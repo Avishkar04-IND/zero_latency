@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
+import '../../../core/accessibility/accessibility_theme.dart';
+import '../../../core/accessibility/talkback_helpers.dart';
 import '../../../services/tts/tts_service.dart';
 import '../../../services/stt/stt_service.dart';
 import '../../../services/api/api_service.dart';
+import '../../../shared/models/verification_model.dart';
+import '../../../shared/widgets/accessible_buttons.dart';
+import '../../../shared/widgets/accessible_cards.dart';
+import '../../../shared/widgets/accessible_states.dart';
 import '../gestures/accessible_gesture_controller.dart';
+import '../navigation/accessibility_router.dart';
+import 'assistant_controller.dart';
 
 class AccessibleAssistantScreen extends StatefulWidget {
   final TTSService ttsService;
   final ApiService apiService;
+  final VerificationResult? verificationResult;
 
   const AccessibleAssistantScreen({
     super.key,
     required this.ttsService,
     required this.apiService,
+    this.verificationResult,
   });
 
   @override
@@ -19,115 +29,185 @@ class AccessibleAssistantScreen extends StatefulWidget {
 }
 
 class _AccessibleAssistantScreenState extends State<AccessibleAssistantScreen> {
-  final STTService _sttService = STTService();
-  String _userQuery = "Tap mic button to speak your medicine query.";
-  String _assistantResponse = "Assistant standing by. You can ask about medicine storage, expiry dates, or dosage.";
-  bool _isProcessing = false;
+  late AssistantController _controller;
 
   @override
   void initState() {
     super.initState();
+    _controller = AssistantController(
+      ttsService: widget.ttsService,
+      sttService: STTService(),
+      result: widget.verificationResult,
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.ttsService.speak(
-        "Voice Assistant screen. Tap microphone button or hold screen to speak your medicine query.",
-      );
+      _controller.speakInitialGreeting();
     });
   }
 
-  Future<void> _startListening() async {
-    widget.ttsService.speak("Listening now. Speak your question.");
-    await _sttService.listen(
-      onResult: (text) async {
-        setState(() {
-          _userQuery = text;
-          _isProcessing = true;
-        });
-        widget.ttsService.speak("Processing question: $text");
-        final resp = await widget.apiService.sendAssistantQuery(text);
-        final respText = resp['response_text'] as String? ?? 'No response received.';
-        if (mounted) {
-          setState(() {
-            _assistantResponse = respText;
-            _isProcessing = false;
-          });
-          widget.ttsService.speak(_assistantResponse);
-        }
-      },
-    );
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AccessibleGestureController(
-      ttsService: widget.ttsService,
-      onSwipeUpHome: () => Navigator.pop(context),
-      onSwipeDownRepeat: () => widget.ttsService.speak(_assistantResponse),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Voice Assistant Interface'),
-          backgroundColor: Colors.black,
-        ),
-        body: Container(
-          color: Colors.black,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E1E),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF00FFFF), width: 2),
-                ),
+    return ValueListenableBuilder<AssistantState>(
+      valueListenable: _controller,
+      builder: (context, state, _) {
+        return AccessibleGestureController(
+          ttsService: widget.ttsService,
+          onDoubleTapScan: _controller.startListening,
+          onSwipeUpHome: () => Navigator.popUntil(context, (route) => route.isFirst),
+          onSwipeDownRepeat: _controller.repeatResponse,
+          onTwoFingerTapHelp: () => AccessibilityRouter.navigateToHelp(context, widget.ttsService),
+          child: Scaffold(
+            backgroundColor: AccessibilityTheme.background,
+            appBar: AppBar(
+              title: const Text('Voice Assistant'),
+              backgroundColor: AccessibilityTheme.background,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, size: 28, color: AccessibilityTheme.accessibilityHighlight),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('YOU SAID:', style: TextStyle(color: Color(0xFF00FFFF), fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text(_userQuery, style: const TextStyle(fontSize: 20, color: Colors.white)),
+                    // 1. Verified Medicine Context Banner
+                    if (state.verificationResult != null && state.verificationResult!.medicine != null) ...[
+                      TalkBackSemantics(
+                        label: 'Active Verified Medicine Context: ${state.verificationResult!.medicine!.name}. Dosage: ${state.verificationResult!.medicine!.dosage}.',
+                        isHeader: true,
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AccessibilityTheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AccessibilityTheme.primary),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.medication, color: AccessibilityTheme.primary, size: 36),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      state.verificationResult!.medicine!.name.toUpperCase(),
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.extrabold, color: AccessibilityTheme.accessibilityHighlight),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Strength: ${state.verificationResult!.medicine!.dosage}',
+                                      style: const TextStyle(fontSize: 15, color: AccessibilityTheme.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              VerificationStatusBadge(
+                                statusText: state.verificationResult!.status.name.toUpperCase(),
+                                backgroundColor: AccessibilityTheme.success,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ] else ...[
+                      // Missing Context Alert
+                      StatusCard(
+                        title: 'No Active Medicine Scan',
+                        message: 'Ask general medicine questions or scan a medicine code first for specific details.',
+                        icon: Icons.info_outline,
+                        color: AccessibilityTheme.primary,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // 2. User Query Box
+                    TalkBackSemantics(
+                      label: 'Your Question: ${state.userQuery}',
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AccessibilityTheme.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AccessibilityTheme.primary.withOpacity(0.5)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('YOU SAID:', style: TextStyle(fontSize: 14, color: AccessibilityTheme.primary, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 6),
+                            Text(
+                              state.userQuery,
+                              style: const TextStyle(fontSize: 18, color: AccessibilityTheme.textPrimary, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 3. Assistant Response Box
+                    Expanded(
+                      child: TalkBackSemantics(
+                        label: 'Assistant Response: ${state.assistantResponse}',
+                        child: Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: AccessibilityTheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AccessibilityTheme.accessibilityHighlight, width: 2),
+                          ),
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('ASSISTANT RESPONSE:', style: TextStyle(fontSize: 14, color: AccessibilityTheme.accessibilityHighlight, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 10),
+                                if (state.isProcessing)
+                                  const AccessibleLoadingState(message: 'Processing voice query...')
+                                else
+                                  Text(
+                                    state.assistantResponse,
+                                    style: const TextStyle(fontSize: 20, color: AccessibilityTheme.textPrimary, fontWeight: FontWeight.bold, height: 1.4),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 4. Voice Action Microphone Button
+                    VoiceActionButton(
+                      label: state.isListening ? 'STOP LISTENING' : 'SPEAK YOUR QUESTION',
+                      isListening: state.isListening,
+                      onPressed: _controller.startListening,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 5. Repeat Response Button
+                    AccessibleSecondaryButton(
+                      label: 'REPEAT RESPONSE',
+                      icon: Icons.replay,
+                      onPressed: _controller.repeatResponse,
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFFD700), width: 2),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('ASSISTANT RESPONSE:', style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        if (_isProcessing)
-                          const CircularProgressIndicator(color: Color(0xFFFFD700))
-                        else
-                          Text(_assistantResponse, style: const TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00FFFF),
-                  foregroundColor: Colors.black,
-                  minimumSize: const Size(double.infinity, 80),
-                ),
-                onPressed: _startListening,
-                icon: const Icon(Icons.mic, size: 40),
-                label: const Text('TAP TO SPEAK QUERY', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
