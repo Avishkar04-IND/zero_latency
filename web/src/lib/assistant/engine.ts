@@ -61,9 +61,10 @@ export function normalizeContext(
     med.storage_conditions ||
     med.storage_instructions ||
     null;
-  const schedule_type = med.schedule_type || null;
-  const side_effects = med.side_effects || null;
-  const dosage_instructions = med.dosage_instructions || null;
+  const schedule_type = context.schedule_type || med.schedule_type || null;
+  const side_effects = context.side_effects || med.side_effects || null;
+  const dosage_instructions =
+    context.dosage_instructions || med.dosage_instructions || null;
 
   const is_genuine =
     context.is_genuine !== undefined
@@ -124,21 +125,30 @@ export function isUnsafeMedicalQuery(query: string): boolean {
   const q = query.toLowerCase().trim();
 
   const unsafePatterns = [
-    /how many (tablets?|pills?|capsules?|drops?|spoons?)(\s+of\s+this)?\s+(should|can|do)\s+i\s+(take|eat|swallow|consume)/i,
-    /how\s+(much|many)(\s+.*)?\s+(should|can|do)\s+i\s+(take|eat|swallow|consume|use)/i,
-    /how (much|many) should i take/i,
-    /can i take (\d+|two|three|four|five) (tablets?|pills?|capsules?)/i,
-    /what dosage should i (personally )?take/i,
-    /what dose should i take/i,
-    /prescribe (me|for me|a dose|something)/i,
-    /give me a prescription/i,
-    /can you diagnose (me|my condition|my symptoms)/i,
-    /what disease do i have/i,
-    /do i have (cancer|covid|diabetes|infection|flu)/i,
-    /can i double (the )?(dose|dosage)/i,
-    /can i take this with alcohol/i,
-    /is it okay for me to take (\d+)/i,
-    /how often should i take this/i,
+    // Personalized quantity or administration queries ("how many tablets should I personally take?", "how much medicine should I take?", etc.)
+    /how\s+(many|much)\b.*?\b(should|can|could|do|may)\s+i\s+(personally\s+)?(take|eat|swallow|consume|use|drink|have)/i,
+    /how\s+(many|much)\s+(should|can|could|do|may)\s+i\s+(personally\s+)?(take|eat|swallow|consume|use|drink|have)/i,
+    /how\s+(much|many)\s+should\s+i\s+(personally\s+)?take/i,
+
+    // Personalized dosage/dose queries ("what dose should I personally take?", "what dosage should I take?", etc.)
+    /what\s+(dose|dosage)\b.*?\b(should|can|could|do|may)\s+i\s+(personally\s+)?(take|eat|swallow|consume|use|drink|have)/i,
+    /what\s+is\s+the\s+(dose|dosage)\b.*?\bi\s+(should|can|could|do|may)\s+(personally\s+)?(take|eat|swallow|consume|use|drink|have)/i,
+
+    // Self-directed intake queries ("can I take two tablets?", "should I take 3 pills?", etc.)
+    /(can|should|could|may|do)\s+i\s+(personally\s+)?(take|eat|swallow|consume|drink|use|have)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|an|another|more|some|this|it)\b/i,
+    /can\s+i\s+(personally\s+)?take\s+(\d+|one|two|three|four|five)\s+(tablets?|pills?|capsules?|drops?|spoons?)/i,
+    /can\s+i\s+take\s+(this|it)\s+with\s+alcohol/i,
+    /can\s+i\s+double\s+(the\s+)?(dose|dosage)/i,
+    /is\s+it\s+(safe|okay|ok|alright)\s+(for\s+me\s+)?to\s+take/i,
+    /is\s+it\s+okay\s+for\s+me\s+to\s+take\s+(\d+)/i,
+    /how\s+often\s+(should|can|do)\s+i\s+(take|use|consume)/i,
+
+    // Prescription & Diagnosis requests
+    /prescribe\s+(me|for\s+me|a\s+dose|something)/i,
+    /give\s+me\s+a\s+prescription/i,
+    /can\s+you\s+diagnose\s+(me|my\s+condition|my\s+symptoms)/i,
+    /what\s+disease\s+do\s+i\s+have/i,
+    /do\s+i\s+have\s+(cancer|covid|diabetes|infection|flu)/i,
   ];
 
   return unsafePatterns.some((pattern) => pattern.test(q));
@@ -323,7 +333,9 @@ export function processAssistantQuery(
     /strength/i.test(qLower) ||
     /how many (mg|milligram|mcg|ml|microgram)/i.test(qLower) ||
     /dosage strength/i.test(qLower) ||
-    /potency/i.test(qLower)
+    /potency/i.test(qLower) ||
+    /dosage (listed|printed|written|stated|given) on (the )?(package|label|box)/i.test(qLower) ||
+    /dosage on (the )?(package|label|box)/i.test(qLower)
   ) {
     if (!medData || !medData.strength) {
       return notEnoughInfo("strength", "strength");
@@ -347,10 +359,11 @@ export function processAssistantQuery(
 
   // D. Manufacturer / Company
   if (
-    /who (made|manufactured|produced|makes)/i.test(qLower) ||
-    /manufacturer/i.test(qLower) ||
-    /company (name|produced|made)/i.test(qLower) ||
-    /which company/i.test(qLower)
+    !/instructions/i.test(qLower) &&
+    (/who (made|manufactured|produced|makes)/i.test(qLower) ||
+      /manufacturer/i.test(qLower) ||
+      /company (name|produced|made)/i.test(qLower) ||
+      /which company/i.test(qLower))
   ) {
     if (!medData || !medData.manufacturer) {
       return notEnoughInfo("manufacturer", "manufacturer");
@@ -599,7 +612,11 @@ export function processAssistantQuery(
   if (
     /package instructions/i.test(qLower) ||
     /label (directions|instructions)/i.test(qLower) ||
-    /manufacturer directions/i.test(qLower)
+    /manufacturer directions/i.test(qLower) ||
+    /dosage instructions/i.test(qLower) ||
+    /manufacturer('?s)? dosage instructions/i.test(qLower) ||
+    /manufacturer('?s)? instructions/i.test(qLower) ||
+    /directions for use/i.test(qLower)
   ) {
     if (!medData || !medData.dosage_instructions) {
       return notEnoughInfo("dosage_instructions", "dosage_instructions");
