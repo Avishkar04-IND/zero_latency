@@ -1,8 +1,14 @@
-import React from 'react';
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
 
-export const metadata = {
-  title: 'Smart Medicine Platform — Admin & User Portal',
-  description: 'Management, verification, analytics, and voice assistant portal.',
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+
+export const metadata: Metadata = {
+  title: "Zero Latency — Pharmaceutical Manufacturing Admin Console",
+  description:
+    "Clinical serialization, batch generation, packaging layout optimization, and anti-counterfeiting verification platform.",
 };
 
 export default function RootLayout({
@@ -11,9 +17,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>
-        <main>{children}</main>
+    <html lang="en" className={inter.variable}>
+      <body className="min-h-screen bg-background font-sans antialiased text-foreground">
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
