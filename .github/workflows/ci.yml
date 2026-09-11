@@ -1,0 +1,82 @@
+name: Smart Medicine Platform CI
+
+on:
+  push:
+    branches: [ main, integration, 'member*/**' ]
+  pull_request:
+    branches: [ main, integration ]
+
+jobs:
+  backend-ci:
+    name: Backend CI (Python / FastAPI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Verify Backend Structure
+        run: |
+          python -m py_compile backend/app/main.py
+
+  web-ci:
+    name: Web CI (Next.js / TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify Web Package Manifest
+        run: |
+          cd web
+          node -e "console.log('package.json verified:', require('./package.json').name)"
+
+  layout-engine-ci:
+    name: Layout Engine CI (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          cd layout-engine
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Verify Layout Engine Structure
+        run: |
+          python -m py_compile layout-engine/app/main.py
+
+  mobile-ci:
+    name: Mobile CI (Flutter)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Verify Mobile Scaffold
+        run: |
+          echo "Flutter app scaffold present under /mobile"
+          test -f mobile/pubspec.yaml
+          test -f mobile/lib/main.dart

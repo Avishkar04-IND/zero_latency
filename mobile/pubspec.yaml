@@ -1,0 +1,30 @@
+name: smart_medicine_mobile
+description: "Accessible Flutter application for visually impaired medicine verification, voice scanning, and AI assistance."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  http: ^1.2.0
+  flutter_tts: ^3.8.5
+  speech_to_text: ^6.6.0
+  vibration: ^1.8.4
+  mobile_scanner: ^5.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/audio/
+    - assets/images/

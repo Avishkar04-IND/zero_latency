@@ -1,0 +1,26 @@
+# ==============================================================================
+# Smart Medicine Platform — Code Ownership Allocation
+# ==============================================================================
+# IMPORTANT: The usernames below are explicit placeholders.
+# Before starting team development, replace @MEMBERX_GITHUB_USERNAME with the
+# actual GitHub usernames of the four team members.
+# ==============================================================================
+
+# Backend Core & Database — Member 1
+/backend/                  @MEMBER1_GITHUB_USERNAME
+
+# Web Admin Panel & Assistant — Member 2
+/web/                      @MEMBER2_GITHUB_USERNAME
+
+# Packaging Layout Optimization Engine — Member 3
+/layout-engine/            @MEMBER3_GITHUB_USERNAME
+
+# Accessible Mobile Application — Member 4
+/mobile/                   @MEMBER4_GITHUB_USERNAME
+
+# Shared Documentation & Global Configuration — Entire Team
+/docs/                     @TEAM
+/.github/                  @TEAM
+/README.md                 @TEAM
+/LICENSE                   @TEAM
+/.gitignore                @TEAM
