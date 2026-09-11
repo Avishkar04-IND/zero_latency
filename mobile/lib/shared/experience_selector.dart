@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../core/accessibility/accessibility_theme.dart';
+import '../core/config/api_config.dart';
 import '../services/api/api_service.dart';
 import '../services/api/mock_api_service.dart';
+import '../services/api/real_api_service.dart';
 import '../services/tts/tts_service.dart';
 import '../services/history/history_service.dart';
 import '../services/history/local_history_service.dart';
@@ -18,11 +20,16 @@ class ExperienceSelectorApp extends StatefulWidget {
 }
 
 class _ExperienceSelectorAppState extends State<ExperienceSelectorApp> {
-  final ApiService _apiService = MockApiService();
+  final ApiService _mockApiService = MockApiService();
+  final ApiService _realApiService = RealApiService();
+  bool _useRealApi = const bool.fromEnvironment('USE_REAL_API', defaultValue: false);
+
   late final TTSService _ttsService;
   late final HistoryService _historyService;
   late final SettingsService _settingsService;
   bool _isAccessibilityMode = true; // Default to accessible experience for Member 4
+
+  ApiService get _apiService => _useRealApi ? _realApiService : _mockApiService;
 
   @override
   void initState() {
@@ -77,29 +84,74 @@ class _ExperienceSelectorAppState extends State<ExperienceSelectorApp> {
       bottom: false,
       child: Container(
         color: const Color(0xFF1E1E1E),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              _isAccessibilityMode ? "MODE: ACCESSIBLE (VISUALLY IMPAIRED)" : "MODE: STANDARD USER",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: _isAccessibilityMode ? const Color(0xFFFFD700) : Colors.blue,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _isAccessibilityMode ? "MODE: ACCESSIBLE" : "MODE: STANDARD USER",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: _isAccessibilityMode ? const Color(0xFFFFD700) : Colors.blue,
+                  ),
+                ),
+                Switch(
+                  value: _isAccessibilityMode,
+                  activeColor: const Color(0xFFFFD700),
+                  onChanged: (val) {
+                    setState(() {
+                      _isAccessibilityMode = val;
+                    });
+                    if (val) {
+                      _ttsService.speak("Switched to Visually Impaired Accessible Experience.");
+                    }
+                  },
+                ),
+              ],
             ),
-            Switch(
-              value: _isAccessibilityMode,
-              activeColor: const Color(0xFFFFD700),
-              onChanged: (val) {
-                setState(() {
-                  _isAccessibilityMode = val;
-                });
-                if (val) {
-                  _ttsService.speak("Switched to Visually Impaired Accessible Experience.");
-                }
-              },
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _useRealApi ? "API: REAL BACKEND (${ApiConfig.baseUrl})" : "API: MOCK BACKEND",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: _useRealApi ? Colors.greenAccent : Colors.orangeAccent,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _useRealApi ? "REAL" : "MOCK",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: _useRealApi ? Colors.greenAccent : Colors.orangeAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Switch(
+                      value: _useRealApi,
+                      activeColor: Colors.greenAccent,
+                      onChanged: (val) {
+                        setState(() {
+                          _useRealApi = val;
+                        });
+                        final modeMsg = val
+                            ? "Switched to Real Backend API service at ${ApiConfig.baseUrl}"
+                            : "Switched to Mock API service";
+                        _ttsService.speak(modeMsg);
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -107,3 +159,4 @@ class _ExperienceSelectorAppState extends State<ExperienceSelectorApp> {
     );
   }
 }
+

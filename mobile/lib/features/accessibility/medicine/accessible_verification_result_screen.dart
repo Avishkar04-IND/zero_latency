@@ -178,7 +178,7 @@ class _AccessibleVerificationResultScreenState extends State<AccessibleVerificat
                       children: [
                         Text(
                           med.name.toUpperCase(),
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.extrabold, color: AccessibilityTheme.accessibilityHighlight),
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AccessibilityTheme.accessibilityHighlight),
                         ),
                         const SizedBox(height: 6),
                         Text(

@@ -37,7 +37,7 @@ class AccessibilityTheme {
         // App Title / Hero Header
         displayLarge: TextStyle(
           fontSize: 32,
-          fontWeight: FontWeight.extrabold,
+          fontWeight: FontWeight.w800,
           color: accessibilityHighlight,
           height: 1.2,
           letterSpacing: 0.5,
@@ -102,7 +102,7 @@ class AccessibilityTheme {
           elevation: 4,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: surface,
         elevation: 2,
         shape: RoundedRectangleBorder(

@@ -89,7 +89,7 @@ class _AccessibleScannerScreenState extends State<AccessibleScannerScreen> {
       builder: (context, state, _) {
         return AccessibleGestureController(
           ttsService: widget.ttsService,
-          onDoubleTapScan: () => _controller.onBarcodeDetected("DATAMATRIX-PAR650-BATCH101-SN9988"),
+          onDoubleTapScan: () => _controller.onBarcodeDetected("MD110"),
           onSwipeUpHome: () => Navigator.pop(context),
           onTwoFingerTapHelp: () => AccessibilityRouter.navigateToHelp(context, widget.ttsService),
           child: Scaffold(
@@ -152,7 +152,7 @@ class _AccessibleScannerScreenState extends State<AccessibleScannerScreen> {
               await _mobileScannerController?.toggleTorch();
               _controller.toggleTorch();
             },
-            onSimulateScan: () => _controller.onBarcodeDetected("DATAMATRIX-PAR650-BATCH101-SN9988"),
+            onSimulateScan: () => _controller.onBarcodeDetected("MD110"),
             onHelp: () => AccessibilityRouter.navigateToHelp(context, widget.ttsService),
           ),
         ),

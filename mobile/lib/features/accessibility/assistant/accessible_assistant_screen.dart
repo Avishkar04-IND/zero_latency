@@ -100,7 +100,7 @@ class _AccessibleAssistantScreenState extends State<AccessibleAssistantScreen> {
                                   children: [
                                     Text(
                                       state.verificationResult!.medicine!.name.toUpperCase(),
-                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.extrabold, color: AccessibilityTheme.accessibilityHighlight),
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AccessibilityTheme.accessibilityHighlight),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(

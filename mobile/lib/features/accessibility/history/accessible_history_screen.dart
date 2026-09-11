@@ -11,7 +11,6 @@ import '../../../shared/models/verification_model.dart';
 import '../../../shared/widgets/accessible_buttons.dart';
 import '../../../shared/widgets/accessible_states.dart';
 import '../gestures/accessible_gesture_controller.dart';
-import '../medicine/accessible_medicine_reader_screen.dart';
 import '../navigation/accessibility_router.dart';
 import 'history_controller.dart';
 
@@ -215,7 +214,7 @@ class _AccessibleHistoryScreenState extends State<AccessibleHistoryScreen> {
                   'SCAN HISTORY',
                   style: TextStyle(
                     fontSize: 20,
-                    fontWeight: FontWeight.extrabold,
+                    fontWeight: FontWeight.w800,
                     color: AccessibilityTheme.accessibilityHighlight,
                     letterSpacing: 1.0,
                   ),
@@ -382,7 +381,7 @@ class _AccessibleHistoryScreenState extends State<AccessibleHistoryScreen> {
                     record.medicineName,
                     style: const TextStyle(
                       fontSize: 22,
-                      fontWeight: FontWeight.extrabold,
+                      fontWeight: FontWeight.w800,
                       color: AccessibilityTheme.textPrimary,
                     ),
                   ),
@@ -425,7 +424,7 @@ class _AccessibleHistoryScreenState extends State<AccessibleHistoryScreen> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Scanned ${HistoryRecord._formatReadableTimestamp(record.timestamp)}',
+                        'Scanned ${HistoryRecord.formatReadableTimestamp(record.timestamp)}',
                         style: const TextStyle(fontSize: 16, color: AccessibilityTheme.primary, fontWeight: FontWeight.w600),
                       ),
                     ),

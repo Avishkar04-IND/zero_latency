@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import '../../../services/tts/tts_service.dart';
 import '../../../services/haptics/haptics_service.dart';
 
@@ -67,7 +68,7 @@ class AccessibleGestureController extends StatelessWidget {
       },
       child: RawGestureDetector(
         gestures: {
-          _TwoFingerTapGestureRecognizer: GestureRecognizerFactoryWithDetails<_TwoFingerTapGestureRecognizer>(
+          _TwoFingerTapGestureRecognizer: GestureRecognizerFactoryWithHandlers<_TwoFingerTapGestureRecognizer>(
             () => _TwoFingerTapGestureRecognizer(),
             (_TwoFingerTapGestureRecognizer instance) {
               instance.onTwoFingerTap = () {
@@ -84,7 +85,7 @@ class AccessibleGestureController extends StatelessWidget {
   }
 }
 
-class _TwoFingerTapGestureRecognizer extends RawGestureRecognizer {
+class _TwoFingerTapGestureRecognizer extends OneSequenceGestureRecognizer {
   VoidCallback? onTwoFingerTap;
   int _pointerCount = 0;
 
