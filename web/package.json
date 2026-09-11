@@ -8,8 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/lib/assistant/__tests__/assistant.test.ts",
-    "test:assistant": "node --experimental-strip-types --test src/lib/assistant/__tests__/assistant.test.ts"
+    "test": "node --experimental-strip-types --test src/lib/assistant/__tests__/assistant.test.ts src/lib/layout/__tests__/layout.test.ts",
+    "test:assistant": "node --experimental-strip-types --test src/lib/assistant/__tests__/assistant.test.ts",
+    "test:layout": "node --experimental-strip-types --test src/lib/layout/__tests__/layout.test.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
