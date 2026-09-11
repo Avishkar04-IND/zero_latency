@@ -4,11 +4,13 @@ import 'package:flutter_tts/flutter_tts.dart';
 class TTSService {
   late FlutterTts _flutterTts;
   bool _isSpeaking = false;
+  bool isVoiceEnabled = true;
   double _speechRate = 0.5; // Normal rate for screen reader
   double _volume = 1.0;
   double _pitch = 1.0;
 
   bool get isSpeaking => _isSpeaking;
+  double get speechRate => _speechRate;
 
   TTSService() {
     _initTts();
@@ -33,7 +35,7 @@ class TTSService {
   }
 
   Future<void> speak(String text) async {
-    if (text.isEmpty) return;
+    if (!isVoiceEnabled || text.isEmpty) return;
     await stop();
     await _flutterTts.speak(text);
   }

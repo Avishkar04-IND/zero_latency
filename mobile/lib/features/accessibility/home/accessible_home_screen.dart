@@ -5,6 +5,7 @@ import '../../../services/tts/tts_service.dart';
 import '../../../services/haptics/haptics_service.dart';
 import '../../../services/api/api_service.dart';
 import '../../../services/history/history_service.dart';
+import '../../../services/settings/settings_service.dart';
 import '../../../shared/widgets/accessible_buttons.dart';
 import '../../../shared/widgets/accessible_cards.dart';
 import '../../../shared/widgets/accessible_states.dart';
@@ -23,12 +24,14 @@ class AccessibleHomeScreen extends StatefulWidget {
   final TTSService ttsService;
   final ApiService apiService;
   final HistoryService? historyService;
+  final SettingsService? settingsService;
 
   const AccessibleHomeScreen({
     super.key,
     required this.ttsService,
     required this.apiService,
     this.historyService,
+    this.settingsService,
   });
 
   @override
@@ -80,7 +83,12 @@ class _AccessibleHomeScreenState extends State<AccessibleHomeScreen> {
 
   void _onSettingsPressed() {
     HapticsService.scanningTick();
-    AccessibilityRouter.navigateToSettings(context, widget.ttsService);
+    AccessibilityRouter.navigateToSettings(
+      context,
+      widget.ttsService,
+      settingsService: widget.settingsService,
+      apiService: widget.apiService,
+    );
   }
 
   void _onHelpPressed() {

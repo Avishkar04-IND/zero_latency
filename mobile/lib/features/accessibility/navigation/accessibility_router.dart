@@ -3,6 +3,7 @@ import '../../../services/tts/tts_service.dart';
 import '../../../services/api/api_service.dart';
 import '../../../shared/models/verification_model.dart';
 import '../../../services/history/history_service.dart';
+import '../../../services/settings/settings_service.dart';
 import '../home/accessible_home_screen.dart';
 import '../scanner/accessible_scanner_screen.dart';
 import '../medicine/accessible_verification_result_screen.dart';
@@ -53,10 +54,14 @@ class AccessibilityRouter {
     );
   }
 
-  static void navigateToSettings(BuildContext context, TTSService tts) {
+  static void navigateToSettings(BuildContext context, TTSService tts, {SettingsService? settingsService, ApiService? apiService}) {
     Navigator.push(
       context,
-      createAccessibleRoute(AccessibleSettingsScreen(ttsService: tts)),
+      createAccessibleRoute(AccessibleSettingsScreen(
+        ttsService: tts,
+        apiService: apiService,
+        settingsService: settingsService,
+      )),
     );
   }
 

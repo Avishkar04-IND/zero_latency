@@ -1,7 +1,10 @@
 import 'package:vibration/vibration.dart';
 
 class HapticsService {
+  static bool isHapticsEnabled = true;
+
   static Future<bool> _hasVibrator() async {
+    if (!isHapticsEnabled) return false;
     try {
       return (await Vibration.hasVibrator()) ?? false;
     } catch (_) {
